@@ -1,0 +1,7 @@
+# Local Supabase browser configuration
+js/supabase-config.js
+
+# Local tooling
+.DS_Store
+Thumbs.db
+.vscode/
