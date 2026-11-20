@@ -137,3 +137,17 @@ grant select on public.admins to authenticated;
 --    It must validate opponent division and calculate points server-side before changing
 --    profiles and inserting a match. Do not approve matches by editing the browser UI.
 -- 3. Confirm your exact 4v4 participant/result verification rules before enabling scoring.
+
+
+-- SECURITY HARDENING
+-- Players may submit only match details. They cannot set review status or reviewer fields.
+revoke insert, update on public.match_submissions from authenticated;
+grant insert (submitted_by, opponent_username, submitter_score, opponent_score, evidence_url, notes)
+  on public.match_submissions to authenticated;
+grant update (status, reviewer_id, review_note, reviewed_at)
+  on public.match_submissions to authenticated;
+-- The update grant is still protected by the "Admins review submissions" RLS policy.
+-- Players cannot create matches or directly change points.
+revoke insert, update, delete on public.matches from anon, authenticated;
+revoke update on public.profiles from anon, authenticated;
+grant update (display_name, bio, avatar_url, banner_url) on public.profiles to authenticated;
