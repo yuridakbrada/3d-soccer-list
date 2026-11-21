@@ -284,6 +284,7 @@
   // ---------- Community: profile history, friends, DMs, groups, clans ----------
   let activeConversationId = null;
   let activeConversationTitle = "";
+  let chatSubscription = null;
   let activeProfileId = null;
   const communityDialog = $("communityDialog");
   const chatDialog = $("chatDialog");
@@ -359,7 +360,12 @@
     $("chatMessages").innerHTML = '<p class="muted small">Loading messages...</p>';
     chatDialog.showModal();
     await loadChatMessages();
+    if (chatSubscription) { await db.removeChannel(chatSubscription); chatSubscription=null; }
+    chatSubscription=db.channel("chat-"+conversationId)
+      .on("postgres_changes",{event:"INSERT",schema:"public",table:"messages",filter:"conversation_id=eq."+conversationId},()=>loadChatMessages())
+      .subscribe();
   }
+  chatDialog.addEventListener("close",()=>{if(chatSubscription&&db){db.removeChannel(chatSubscription);chatSubscription=null;}});
 
   async function loadChatMessages() {
     if (!db || !activeConversationId) return;
@@ -439,7 +445,7 @@
   async function renderClanRanking() {
     const {data,error}=await db.from("clan_ranking").select("*").order("points",{ascending:false}).limit(100);
     if (error) { $("communityContent").textContent=error.message; return; }
-    $("communityContent").innerHTML='<div class="community-actions"><button class="button button-outline" data-community="clans">Back to clans</button></div><div class="clan-ranking-list">'+(data||[]).map((c,i)=>'<article class="community-row"><span><b>#'+(i+1)+' '+escapeHtml(c.name)+'</b><small>'+Number(c.member_count)+'/4 players</small></span><strong>'+Number(c.points).toLocaleString()+' pts</strong></article>').join("")+'</div>';
+    $("communityContent").innerHTML='<div class="community-actions"><button class="button button-outline" data-community="clans">Back to clans</button></div><div class="clan-ranking-list">'+(data||[]).map((c,i)=>'<article class="community-row"><span><b>#'+(i+1)+' <button class="link-button" data-view-clan="'+c.id+'">'+escapeHtml(c.name)+'</button></b><small>'+Number(c.member_count)+'/4 players</small></span><strong>'+Number(c.points).toLocaleString()+' pts</strong></article>').join("")+'</div>';
   }
 
 
