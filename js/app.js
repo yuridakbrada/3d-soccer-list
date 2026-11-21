@@ -94,11 +94,61 @@
   $("authSwitch").addEventListener("click", () => setAuthMode(mode === "login" ? "signup" : "login"));
   $("accountButton").addEventListener("click", async () => {
     if (!currentUser) return;
-    $("profileTitle").innerHTML = `<em>@${escapeHtml(currentProfile?.username || "player")}</em>`;
-    $("profileContent").innerHTML = currentProfile
-      ? `<div class="profile-stat"><b>${Number(currentProfile.points).toLocaleString()} points</b> · ${escapeHtml(currentProfile.division)}</div><p>${escapeHtml(currentProfile.bio || "No biography yet.")}</p><p class="muted small">Wins: ${currentProfile.wins || 0} · Losses: ${currentProfile.losses || 0}</p>`
-      : '<p class="muted">Your profile is being prepared.</p>';
+    renderProfile();
+    profileEditForm.classList.add("hidden");
+    $("editProfileOpen").classList.remove("hidden");
     profileDialog.showModal();
+  });
+  function renderProfile() {
+    $("profileTitle").innerHTML = '<em>@' + escapeHtml(currentProfile?.username || "player") + '</em>';
+    if (!currentProfile) {
+      $("profileContent").innerHTML = '<p class="muted">Your profile is being prepared.</p>';
+      return;
+    }
+    const banner = currentProfile.banner_url ? '<img class="profile-banner" src="' + escapeHtml(currentProfile.banner_url) + '" alt="Profile banner" referrerpolicy="no-referrer">' : "";
+    const avatar = currentProfile.avatar_url ? '<img class="profile-avatar" src="' + escapeHtml(currentProfile.avatar_url) + '" alt="Profile avatar" referrerpolicy="no-referrer">' : "";
+    $("profileContent").innerHTML = banner + '<div class="profile-identity">' + avatar + '<div><strong>' + escapeHtml(currentProfile.display_name || currentProfile.username) + '</strong><div class="muted tiny">@' + escapeHtml(currentProfile.username) + '</div></div></div><div class="profile-stat"><b>' + Number(currentProfile.points).toLocaleString() + ' points</b> · ' + escapeHtml(currentProfile.division) + '</div><p>' + escapeHtml(currentProfile.bio || "No biography yet.") + '</p><p class="muted small">Wins: ' + (currentProfile.wins || 0) + ' · Losses: ' + (currentProfile.losses || 0) + '</p>';
+  }
+  $("editProfileOpen").addEventListener("click", () => {
+    profileEditForm.elements.display_name.value = currentProfile?.display_name || "";
+    profileEditForm.elements.bio.value = currentProfile?.bio || "";
+    profileEditForm.elements.avatar_url.value = currentProfile?.avatar_url || "";
+    profileEditForm.elements.banner_url.value = currentProfile?.banner_url || "";
+    profileEditForm.classList.remove("hidden");
+    $("editProfileOpen").classList.add("hidden");
+    message("profileEditMessage", "");
+  });
+  $("profileEditCancel").addEventListener("click", () => {
+    profileEditForm.classList.add("hidden");
+    $("editProfileOpen").classList.remove("hidden");
+    message("profileEditMessage", "");
+  });
+  profileEditForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!db || !currentUser) return message("profileEditMessage", "Please log in again.", true);
+    const form = new FormData(profileEditForm);
+    const displayName = String(form.get("display_name") || "").trim();
+    const bio = String(form.get("bio") || "").trim();
+    const avatarUrl = String(form.get("avatar_url") || "").trim();
+    const bannerUrl = String(form.get("banner_url") || "").trim();
+    if (!displayName) return message("profileEditMessage", "Display name is required.", true);
+    for (const value of [avatarUrl, bannerUrl]) {
+      if (value && !/^https?:\\/\\//i.test(value)) return message("profileEditMessage", "Image URLs must begin with http:// or https://.", true);
+    }
+    $("profileSave").disabled = true;
+    message("profileEditMessage", "Saving...");
+    const { error } = await db.from("profiles").update({
+      display_name: displayName, bio,
+      avatar_url: avatarUrl || null, banner_url: bannerUrl || null
+    }).eq("id", currentUser.id);
+    $("profileSave").disabled = false;
+    if (error) return message("profileEditMessage", error.message, true);
+    await loadProfile();
+    renderProfile();
+    profileEditForm.classList.add("hidden");
+    $("editProfileOpen").classList.remove("hidden");
+    message("profileEditMessage", "Profile updated successfully.");
+    loadRanking();
   });
   $("adminOpen").addEventListener("click", async () => { await loadAdminSubmissions(); adminDialog.showModal(); });
   $("logoutButton").addEventListener("click", async () => {
