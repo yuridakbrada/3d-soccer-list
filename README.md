@@ -46,11 +46,24 @@ The frontend is a static site. Supabase will provide authentication and persiste
 
 1. Create a Supabase project.
 2. Run the SQL in `supabase/schema.sql`.
-3. Copy `js/supabase-config.example.js` to `js/supabase-config.js`.
-4. Add your Supabase project URL and publishable (anon) key to that local config file.
-5. Open `index.html` through a local development server or deploy it to static hosting.
+3. Run `supabase/community-migration.sql` for conversations, groups, clans, clan ranking and livestream links.
+4. Run `supabase/community-features-migration.sql` for friend requests, DM privacy settings and public match history.
+5. Run `supabase/clan-management-migration.sql` for clan invitations, member removal and vice-leader management.
+6. Copy `js/supabase-config.example.js` to `js/supabase-config.js`.
+7. Add your Supabase project URL and publishable (anon) key to that local config file.
+8. Open `index.html` through a local development server or deploy it to static hosting.
 
 Never commit a Supabase `service_role` key, database password, or other secret.
+
+## Community features
+
+- Public player profiles with the latest 10 approved matches
+- DM privacy: nobody, friends only, or everyone
+- Friend requests
+- Private direct messages and group conversations
+- Clans with up to four players, leadership roles, join requests and invitations
+- Clan ranking based on the combined points of members
+- Player livestream links for YouTube, Twitch and Kick
 
 ## License
 
