@@ -130,3 +130,34 @@ grant execute on function public.are_friends(uuid,uuid) to authenticated;
 grant execute on function public.send_friend_request(uuid) to authenticated;
 grant execute on function public.respond_friend_request(uuid,boolean) to authenticated;
 grant execute on function public.create_conversation(uuid[],text) to authenticated;
+
+
+-- Re-check privacy on every direct message, including existing conversations.
+create or replace function public.enforce_direct_message_privacy()
+returns trigger language plpgsql security definer
+set search_path=public,pg_temp
+as $$
+declare
+  v_type text;
+  v_recipient uuid;
+  v_policy text;
+begin
+  select conversation_type into v_type from public.conversations where id=new.conversation_id;
+  if v_type='direct' then
+    select user_id into v_recipient
+    from public.conversation_participants
+    where conversation_id=new.conversation_id and user_id<>new.sender_id
+    limit 1;
+    select dm_policy into v_policy from public.profiles where id=v_recipient;
+    if v_policy='nobody' then raise exception 'This player is not accepting direct messages'; end if;
+    if v_policy='friends' and not public.are_friends(new.sender_id,v_recipient) then
+      raise exception 'This player only accepts messages from friends';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists direct_message_privacy_guard on public.messages;
+create trigger direct_message_privacy_guard before insert on public.messages
+for each row execute function public.enforce_direct_message_privacy();
+revoke all on function public.enforce_direct_message_privacy() from public,anon,authenticated;
