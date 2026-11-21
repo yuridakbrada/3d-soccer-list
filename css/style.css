@@ -145,3 +145,9 @@ footer .brand{font-size:16px}
 .chat-message p{margin:0;font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere}.chat-message small{display:block;margin-top:5px;color:#91a0a9;font-size:9px}
 .chat-compose{display:flex;gap:8px;align-items:flex-end;margin-top:10px}.chat-compose textarea{resize:vertical;min-height:44px}
 @media(max-width:700px){.community-grid{grid-template-columns:1fr}.community-card{padding:17px}.chat-compose{align-items:stretch;flex-direction:column}.chat-compose .button{align-self:flex-end}}
+
+
+/* Header account avatar */
+.user-chip{width:42px;height:42px;padding:3px;display:inline-flex;align-items:center;justify-content:center;overflow:hidden;border-radius:50%;background:#273139;border:1px solid #566674;color:#d6e2eb;flex:0 0 42px}
+.account-avatar{display:block;width:100%;height:100%;border-radius:50%;object-fit:cover}
+.account-avatar-fallback{width:100%;height:100%;display:grid;place-items:center;border-radius:50%;background:#34434d;color:#d6e2eb;font-size:15px;font-weight:800}
