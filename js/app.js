@@ -11,6 +11,7 @@
   let currentProfile = null;
   const authDialog = $("authDialog");
   const profileDialog = $("profileDialog");
+  const adminDialog = $("adminDialog");
 
   function message(id, text, isError = false) {
     const el = $(id);
@@ -35,6 +36,7 @@
     $("accountButton").textContent = currentProfile?.username || currentUser?.email || "My account";
   }
   function showSignedOut() {
+    $("adminOpen").classList.add("hidden");
     currentUser = null; currentProfile = null;
     $("loginOpen").classList.remove("hidden");
     $("signupOpen").classList.remove("hidden");
@@ -47,11 +49,25 @@
     currentProfile = data;
     if (data) showSignedIn(data);
   }
+  async function checkAdmin() {
+    if (!db || !currentUser) { $("adminOpen").classList.add("hidden"); return; }
+    const { data, error } = await db.rpc("is_admin");
+    if (error) { console.error("Admin check failed:", error); $("adminOpen").classList.add("hidden"); return; }
+    $("adminOpen").classList.toggle("hidden", data !== true);
+  }
+  async function loadAdminSubmissions() {
+    const target = $("adminSubmissions");
+    target.innerHTML = '<p class="muted">Loading submissions...</p>';
+    const { data, error } = await db.from("match_submissions").select("id, opponent_username, submitter_score, opponent_score, evidence_url, notes, created_at, profiles(username)").eq("status", "pending").order("created_at", { ascending: true });
+    if (error) { target.textContent = "Could not load submissions: " + error.message; return; }
+    if (!data?.length) { target.innerHTML = '<p class="muted">No pending submissions.</p>'; return; }
+    target.innerHTML = data.map(item => `<article class="admin-submission"><strong>@${escapeHtml(item.profiles?.username || "unknown")}</strong> vs <strong>@${escapeHtml(item.opponent_username)}</strong><br>Score: ${item.submitter_score}–${item.opponent_score}<br><a href="${escapeHtml(item.evidence_url)}" target="_blank" rel="noopener noreferrer">Open evidence</a>${item.notes ? `<p>${escapeHtml(item.notes)}</p>` : ""}<small class="muted">${new Date(item.created_at).toLocaleString()}</small></article>`).join("");
+  }
   async function refreshSession() {
     if (!db) return;
     const { data } = await db.auth.getSession();
     currentUser = data.session?.user || null;
-    if (currentUser) { await loadProfile(); if (!currentProfile) showSignedIn(null); }
+    if (currentUser) { await loadProfile(); if (!currentProfile) showSignedIn(null); await checkAdmin(); }
     else showSignedOut();
   }
   async function loadRanking() {
@@ -84,6 +100,7 @@
       : '<p class="muted">Your profile is being prepared.</p>';
     profileDialog.showModal();
   });
+  $("adminOpen").addEventListener("click", async () => { await loadAdminSubmissions(); adminDialog.showModal(); });
   $("logoutButton").addEventListener("click", async () => {
     if (db) await db.auth.signOut();
     profileDialog.close(); showSignedOut();
@@ -105,7 +122,7 @@
     } else {
       const { data, error } = await db.auth.signInWithPassword({ email, password });
       if (error) return message("authMessage", error.message, true);
-      currentUser = data.user; await loadProfile(); authDialog.close(); showSignedIn(currentProfile);
+      currentUser = data.user; await loadProfile(); await checkAdmin(); authDialog.close(); showSignedIn(currentProfile);
     }
   });
   $("matchForm").addEventListener("submit", async (event) => {
@@ -139,7 +156,7 @@
     db.auth.onAuthStateChange((_event, session) => {
       currentUser = session?.user || null;
       if (!currentUser) showSignedOut();
-      else setTimeout(async () => { await loadProfile(); showSignedIn(currentProfile); }, 0);
+      else setTimeout(async () => { await loadProfile(); await checkAdmin(); showSignedIn(currentProfile); }, 0);
     });
     refreshSession(); loadRanking();
   } else {
