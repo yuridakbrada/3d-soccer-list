@@ -16,7 +16,7 @@
   <a class="brand" href="#home"><span class="brand-mark">3D</span><span>SOCCER <b>LIST</b></span></a>
   <button class="mobile-menu" id="mobileMenu" aria-label="Toggle menu">☰</button>
   <nav id="navigation">
-    <a href="#ranking">Ranking</a><a href="#divisions">Divisions</a><a href="#rules">Rules</a>
+    <a href="#ranking">Ranking</a><a href="#community">Community</a><a href="#divisions">Divisions</a><a href="#rules">Rules</a>
     <button class="button button-outline" id="loginOpen" type="button">Log in</button>
     <button class="button button-primary" id="signupOpen" type="button">Create account</button>
     <button class="user-chip hidden" id="accountButton"></button>
@@ -40,6 +40,15 @@
     <div class="toolbar"><input id="playerSearch" type="search" placeholder="Search players..." aria-label="Search players"><select id="divisionFilter" aria-label="Filter by division"><option value="">All divisions</option><option>Beginner</option><option>Intermediate</option><option>Advanced</option><option>Professional</option><option>Legend</option><option>Master</option><option>Professor</option></select></div>
     <div class="table-wrap"><table><thead><tr><th>#</th><th>PLAYER</th><th>DIVISION</th><th>POINTS</th><th>W-L</th></tr></thead><tbody id="rankingRows"><tr><td colspan="5" class="empty">Connect the Supabase project to load the official ranking.</td></tr></tbody></table></div>
     <div class="ranking-footer"><p class="muted small" id="rankingStatus">Leaderboard data will appear here when the database is configured.</p><div class="ranking-pagination"><button class="button button-outline" id="rankingPrev" type="button" disabled>Previous</button><span id="rankingPageLabel">Page 1</span><button class="button button-outline" id="rankingNext" type="button" disabled>Next</button></div></div>
+  </section>
+
+  <section class="section section-alt" id="community">
+    <div class="section-head"><div><p class="eyebrow">PLAYERS AND TEAMS</p><h2>Community <em>hub</em></h2></div><p class="section-aside">CONNECT · COMPETE · BUILD</p></div>
+    <div class="community-grid">
+      <article class="community-card"><h3>Messages</h3><p>Private conversations and group chats with other players.</p><button class="button button-primary" id="openMessages" type="button">Open messages</button></article>
+      <article class="community-card"><h3>Clans</h3><p>Create a team of up to four players, manage membership and compete in the clan ranking.</p><button class="button button-primary" id="openClans" type="button">Explore clans</button></article>
+      <article class="community-card"><h3>Clan ranking</h3><p>Teams ranked by the combined points of their members.</p><button class="button button-outline" id="openClanRanking" type="button">View ranking</button></article>
+    </div>
   </section>
 
   <section class="section section-alt" id="divisions">
@@ -116,10 +125,31 @@
     <label>Bio<textarea name="bio" maxlength="240" rows="3" placeholder="Tell the community about yourself"></textarea></label>
     <label>Avatar image URL <span class="optional">(optional)</span><input name="avatar_url" type="url" placeholder="https://..."></label>
     <label>Banner image URL <span class="optional">(optional)</span><input name="banner_url" type="url" placeholder="https://..."></label>
+    <label>Direct messages
+      <select name="dm_policy"><option value="nobody">Do not accept DMs</option><option value="friends">Accept DMs from friends</option><option value="everyone">Accept DMs from everyone</option></select>
+    </label>
+    <div class="stream-editor">
+      <p class="muted small">Your livestream links (YouTube, Twitch and Kick)</p>
+      <label>YouTube<input name="stream_youtube" type="url" placeholder="https://youtube.com/..."></label>
+      <label>Twitch<input name="stream_twitch" type="url" placeholder="https://twitch.tv/..."></label>
+      <label>Kick<input name="stream_kick" type="url" placeholder="https://kick.com/..."></label>
+    </div>
     <div class="profile-edit-actions"><button class="button button-primary" type="submit" id="profileSave">Save changes</button><button class="button button-ghost" id="profileEditCancel" type="button">Cancel</button></div>
     <p class="form-message" id="profileEditMessage" role="status"></p>
   </form>
   <button class="button button-ghost" id="logoutButton">Log out</button>
+</dialog>
+<dialog id="communityDialog" class="dialog community-dialog">
+  <form method="dialog" class="dialog-close"><button aria-label="Close">×</button></form>
+  <p class="eyebrow">PLAYER COMMUNITY</p><h2 id="communityTitle">Messages</h2>
+  <div id="communityContent"><p class="muted">Loading...</p></div>
+</dialog>
+<dialog id="chatDialog" class="dialog chat-dialog">
+  <form method="dialog" class="dialog-close"><button aria-label="Close">×</button></form>
+  <p class="eyebrow">PRIVATE CONVERSATION</p><h2 id="chatTitle">Messages</h2>
+  <div id="chatMessages" class="chat-messages"></div>
+  <form id="chatForm" class="chat-compose"><textarea name="body" required maxlength="2000" rows="2" placeholder="Write a message..."></textarea><button class="button button-primary" type="submit">Send</button></form>
+  <p id="chatStatus" class="form-message" role="status"></p>
 </dialog>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/supabase-config.js"></script>
