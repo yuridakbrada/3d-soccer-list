@@ -68,3 +68,29 @@ td{border-color:#333e46}
 footer{background:#13191d;border-color:#343d44}
 footer .brand{font-size:16px}
 @media(max-width:600px){nav{gap:13px}.hero{padding-top:60px}.hero-art{opacity:.25}.section{padding-top:52px;padding-bottom:52px}}
+
+
+/* Final cleanup: simple layout, clear hierarchy, reliable click targets */
+.topbar{position:sticky;z-index:50;background:#171d22}
+.topbar nav{position:relative;z-index:51}
+.topbar nav button{position:relative;z-index:52;pointer-events:auto}
+.hero{background:#1b2329;min-height:410px}
+.hero-art{display:none}
+.hero-copy{max-width:650px}
+.hero h1{font-size:clamp(44px,6vw,72px);line-height:1.02;letter-spacing:-1.5px}
+.hero .lead{max-width:520px}
+.hero-footnote{margin-top:35px}
+.section{padding-top:58px;padding-bottom:58px}
+.section-alt{background:#1a2126}
+.division,.rule,.table-wrap,.points-system{box-shadow:none}
+.division-top{background:#222c34;border-color:#637f96}
+.notice{box-shadow:none}
+.button{transition:background-color .15s ease,border-color .15s ease}
+.button-primary{background:#6689a7;border-color:#789bb8}
+.button-primary:hover{background:#789bb8}
+@media(max-width:600px){
+  .topbar nav{z-index:60}
+  .topbar nav button{width:100%;min-height:42px}
+  .hero{min-height:360px}
+  .hero h1{font-size:clamp(42px,12vw,60px)}
+}
