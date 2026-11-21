@@ -55,12 +55,12 @@ declare
   v_members uuid[];
 begin
   if auth.uid() is null then raise exception 'Authentication required'; end if;
-  select array_agg(distinct x) into v_members
-  from unnest(coalesce(p_member_ids, array[]::uuid[]) || array[auth.uid()]) as x;
+  select array_agg(distinct u.user_id) into v_members
+  from unnest(coalesce(p_member_ids, array[]::uuid[]) || array[auth.uid()]) as u(user_id);
   if cardinality(v_members) < 2 or cardinality(v_members) > 20 then
     raise exception 'A conversation must have 2 to 20 participants';
   end if;
-  if exists (select 1 from unnest(v_members) x left join public.profiles p on p.id=x where p.id is null) then
+  if exists (select 1 from unnest(v_members) as u(user_id) left join public.profiles p on p.id=u.user_id where p.id is null) then
     raise exception 'One or more players do not exist';
   end if;
   v_type := case when cardinality(v_members)=2 and nullif(trim(p_title),'') is null then 'direct' else 'group' end;
@@ -71,7 +71,7 @@ begin
   values (v_type, case when v_type='group' then trim(p_title) else null end, auth.uid())
   returning id into v_id;
   insert into public.conversation_participants(conversation_id,user_id,member_role)
-  select v_id, x, case when x=auth.uid() then 'owner' else 'member' end from unnest(v_members) x;
+  select v_id, u.user_id, case when u.user_id=auth.uid() then 'owner' else 'member' end from unnest(v_members) as u(user_id);
   return v_id;
 end;
 $$;
@@ -117,7 +117,7 @@ grant select on public.conversations, public.conversation_participants, public.m
 grant insert on public.messages to authenticated;
 revoke insert, update, delete on public.conversations, public.conversation_participants from anon, authenticated;
 revoke update, delete on public.messages from anon, authenticated;
-grant execute on function public.create_conversation(uuid[],text) to authenticated;
+revoke all on function public.is_conversation_member(uuid) from public, anon;\ngrant execute on function public.is_conversation_member(uuid) to authenticated;\nrevoke all on function public.create_conversation(uuid[],text) from public, anon;\nrevoke all on function public.add_conversation_participant(uuid,uuid) from public, anon;\ngrant execute on function public.create_conversation(uuid[],text) to authenticated;
 grant execute on function public.add_conversation_participant(uuid,uuid) to authenticated;
 
 -- ---------- Clans ----------
@@ -279,7 +279,7 @@ using (user_id=auth.uid() or exists(
 
 grant select on public.clans, public.clan_members, public.clan_join_requests to anon, authenticated;
 revoke insert, update, delete on public.clans, public.clan_members, public.clan_join_requests from anon, authenticated;
-grant execute on function public.create_clan(text,text) to authenticated;
+revoke all on function public.create_clan(text,text) from public, anon;\nrevoke all on function public.request_clan_join(uuid) from public, anon;\nrevoke all on function public.review_clan_join_request(uuid,boolean) from public, anon;\nrevoke all on function public.leave_clan() from public, anon;\nrevoke all on function public.transfer_clan_leadership(uuid) from public, anon;\ngrant execute on function public.create_clan(text,text) to authenticated;
 grant execute on function public.request_clan_join(uuid) to authenticated;
 grant execute on function public.review_clan_join_request(uuid,boolean) to authenticated;
 grant execute on function public.leave_clan() to authenticated;
