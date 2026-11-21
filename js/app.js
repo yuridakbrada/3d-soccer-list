@@ -2,9 +2,19 @@
   const $ = (id) => document.getElementById(id);
   const configured = window.SUPABASE_URL && !window.SUPABASE_URL.includes("YOUR-PROJECT")
     && window.SUPABASE_ANON_KEY && !window.SUPABASE_ANON_KEY.includes("YOUR_");
-  const db = configured && window.supabase
-    ? window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY)
-    : null;
+  let db = null;
+  let dbInitError = null;
+  if (configured && window.supabase?.createClient) {
+    try {
+      db = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+    } catch (error) {
+      dbInitError = error;
+      console.error("Supabase initialization failed:", error);
+    }
+  } else if (configured) {
+    dbInitError = new Error("Supabase JavaScript library did not load.");
+    console.error(dbInitError);
+  }
 
   let mode = "login";
   let currentUser = null;
@@ -215,7 +225,7 @@
   });
   $("authForm").addEventListener("submit", async (event) => {
     event.preventDefault();
-    if (!db) return message("authMessage", "Supabase is not configured yet. Follow the setup instructions in README.md.", true);
+    if (!db) return message("authMessage", dbInitError ? "Could not connect to the login service. Reload the page and check the browser console." : "Supabase is not configured yet. Follow the setup instructions in README.md.", true);
     const form = new FormData(event.currentTarget);
     const email = String(form.get("email")).trim();
     const password = String(form.get("password"));
