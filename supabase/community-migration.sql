@@ -117,7 +117,11 @@ grant select on public.conversations, public.conversation_participants, public.m
 grant insert on public.messages to authenticated;
 revoke insert, update, delete on public.conversations, public.conversation_participants from anon, authenticated;
 revoke update, delete on public.messages from anon, authenticated;
-revoke all on function public.is_conversation_member(uuid) from public, anon;\ngrant execute on function public.is_conversation_member(uuid) to authenticated;\nrevoke all on function public.create_conversation(uuid[],text) from public, anon;\nrevoke all on function public.add_conversation_participant(uuid,uuid) from public, anon;\ngrant execute on function public.create_conversation(uuid[],text) to authenticated;
+revoke all on function public.is_conversation_member(uuid) from public, anon;
+grant execute on function public.is_conversation_member(uuid) to authenticated;
+revoke all on function public.create_conversation(uuid[],text) from public, anon;
+revoke all on function public.add_conversation_participant(uuid,uuid) from public, anon;
+grant execute on function public.create_conversation(uuid[],text) to authenticated;
 grant execute on function public.add_conversation_participant(uuid,uuid) to authenticated;
 
 -- ---------- Clans ----------
@@ -279,7 +283,12 @@ using (user_id=auth.uid() or exists(
 
 grant select on public.clans, public.clan_members, public.clan_join_requests to anon, authenticated;
 revoke insert, update, delete on public.clans, public.clan_members, public.clan_join_requests from anon, authenticated;
-revoke all on function public.create_clan(text,text) from public, anon;\nrevoke all on function public.request_clan_join(uuid) from public, anon;\nrevoke all on function public.review_clan_join_request(uuid,boolean) from public, anon;\nrevoke all on function public.leave_clan() from public, anon;\nrevoke all on function public.transfer_clan_leadership(uuid) from public, anon;\ngrant execute on function public.create_clan(text,text) to authenticated;
+revoke all on function public.create_clan(text,text) from public, anon;
+revoke all on function public.request_clan_join(uuid) from public, anon;
+revoke all on function public.review_clan_join_request(uuid,boolean) from public, anon;
+revoke all on function public.leave_clan() from public, anon;
+revoke all on function public.transfer_clan_leadership(uuid) from public, anon;
+grant execute on function public.create_clan(text,text) to authenticated;
 grant execute on function public.request_clan_join(uuid) to authenticated;
 grant execute on function public.review_clan_join_request(uuid,boolean) to authenticated;
 grant execute on function public.leave_clan() to authenticated;
