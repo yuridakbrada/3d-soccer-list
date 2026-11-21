@@ -98,7 +98,7 @@
     if (mode === "signup") {
       const username = String(form.get("username")).trim().toLowerCase();
       if (!/^[a-z0-9_]{3,24}$/.test(username)) return message("authMessage", "Username: 3–24 characters, letters, numbers and underscores only.", true);
-      const { data, error } = await db.auth.signUp({ email, password, options: { data: { username } } });
+      const { data, error } = await db.auth.signUp({ email, password, options: { data: { username }, emailRedirectTo: "https://yuridakbrada.github.io/3d-soccer-list/" } });
       if (error) return message("authMessage", error.message, true);
       if (data.session) { currentUser = data.user; await loadProfile(); authDialog.close(); }
       else message("authMessage", "Account created. Check your email to confirm your address, then log in.");
