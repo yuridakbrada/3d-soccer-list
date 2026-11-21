@@ -164,6 +164,7 @@
     if (!db) return;
     if (currentUser?.id === playerId && currentProfile) {
       renderProfile(currentProfile);
+      loadProfileExtras(currentProfile);
       profileEditForm.classList.add("hidden");
       profileDialog.showModal();
       return;
