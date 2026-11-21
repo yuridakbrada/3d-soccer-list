@@ -42,12 +42,41 @@
     $("authForm").elements.password.autocomplete = mode === "signup" ? "new-password" : "current-password";
     message("authMessage", "");
   }
+  function updateAccountButton() {
+    const button = $("accountButton");
+    const profile = currentProfile;
+    const label = profile?.display_name || profile?.username || currentUser?.email || "My account";
+    const initials = (profile?.display_name || profile?.username || currentUser?.email || "?")
+      .trim().charAt(0).toUpperCase();
+    button.replaceChildren();
+    button.title = label;
+    button.setAttribute("aria-label", "Open profile: " + label);
+    if (profile?.avatar_url) {
+      const avatar = document.createElement("img");
+      avatar.className = "account-avatar";
+      avatar.src = profile.avatar_url;
+      avatar.alt = "";
+      avatar.referrerPolicy = "no-referrer";
+      avatar.onerror = () => {
+        const fallback = document.createElement("span");
+        fallback.className = "account-avatar-fallback";
+        fallback.textContent = initials;
+        button.replaceChildren(fallback);
+      };
+      button.append(avatar);
+    } else {
+      const fallback = document.createElement("span");
+      fallback.className = "account-avatar-fallback";
+      fallback.textContent = initials;
+      button.append(fallback);
+    }
+  }
   function showSignedIn(profile) {
     currentProfile = profile || currentProfile;
     $("loginOpen").classList.add("hidden");
     $("signupOpen").classList.add("hidden");
     $("accountButton").classList.remove("hidden");
-    $("accountButton").textContent = currentProfile?.username || currentUser?.email || "My account";
+    updateAccountButton();
   }
   function showSignedOut() {
     $("adminOpen").classList.add("hidden");
