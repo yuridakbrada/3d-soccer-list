@@ -58,7 +58,7 @@
   }
   async function loadProfile() {
     if (!db || !currentUser) return;
-    const { data, error } = await db.from("profiles").select("id, username, display_name, bio, points, division, wins, losses, avatar_url, banner_url").eq("id", currentUser.id).maybeSingle();
+    const { data, error } = await db.from("profiles").select("id, username, display_name, bio, points, division, wins, losses, avatar_url, banner_url, dm_policy").eq("id", currentUser.id).maybeSingle();
     if (error) { console.error(error); return; }
     currentProfile = data;
     if (data) showSignedIn(data);
@@ -141,6 +141,7 @@
   $("accountButton").addEventListener("click", async () => {
     if (!currentUser) return;
     renderProfile();
+    loadProfileExtras(currentProfile);
     profileEditForm.classList.add("hidden");
     $("editProfileOpen").classList.remove("hidden");
     profileDialog.showModal();
@@ -157,7 +158,7 @@
     }
     const banner = viewedProfile.banner_url ? '<img class="profile-banner" src="' + escapeHtml(viewedProfile.banner_url) + '" alt="Profile banner" referrerpolicy="no-referrer">' : "";
     const avatar = viewedProfile.avatar_url ? '<img class="profile-avatar" src="' + escapeHtml(viewedProfile.avatar_url) + '" alt="Profile avatar" referrerpolicy="no-referrer">' : "";
-    $("profileContent").innerHTML = banner + '<div class="profile-identity">' + avatar + '<div><div class="profile-name-line"><span class="profile-name-main"><strong>' + escapeHtml(viewedProfile.display_name || viewedProfile.username) + '</strong>' + divisionBadge(viewedProfile) + '</span></div><div class="muted tiny">@' + escapeHtml(viewedProfile.username) + '</div></div></div><div class="profile-stat"><b>' + Number(viewedProfile.points).toLocaleString() + ' points</b> · ' + escapeHtml(viewedProfile.division) + '</div><p>' + escapeHtml(viewedProfile.bio || "No biography yet.") + '</p><p class="muted small">Wins: ' + (viewedProfile.wins || 0) + ' · Losses: ' + (viewedProfile.losses || 0) + '</p>';
+    $("profileContent").innerHTML = banner + '<div class="profile-identity">' + avatar + '<div><div class="profile-name-line"><span class="profile-name-main"><strong>' + escapeHtml(viewedProfile.display_name || viewedProfile.username) + '</strong>' + divisionBadge(viewedProfile) + '</span></div><div class="muted tiny">@' + escapeHtml(viewedProfile.username) + '</div></div></div><div class="profile-stat"><b>' + Number(viewedProfile.points).toLocaleString() + ' points</b> · ' + escapeHtml(viewedProfile.division) + '</div><p>' + escapeHtml(viewedProfile.bio || "No biography yet.") + '</p><p class="muted small">Wins: ' + (viewedProfile.wins || 0) + ' · Losses: ' + (viewedProfile.losses || 0) + '</p><div id="profileStreams" class="profile-streams"></div><div id="profileActions" class="profile-actions"></div><section class="profile-match-section"><h3>Recent matches</h3><div id="profileMatches" class="profile-matches"><p class="muted small">Loading recent matches...</p></div></section>';
   }
   async function openPlayerProfile(playerId) {
     if (!db) return;
@@ -167,9 +168,10 @@
       profileDialog.showModal();
       return;
     }
-    const { data, error } = await db.from("profiles").select("id, username, display_name, bio, points, division, wins, losses, avatar_url, banner_url").eq("id", playerId).maybeSingle();
+    const { data, error } = await db.from("profiles").select("id, username, display_name, bio, points, division, wins, losses, avatar_url, banner_url, dm_policy").eq("id", playerId).maybeSingle();
     if (error || !data) { console.error(error); return; }
     renderProfile(data);
+    loadProfileExtras(data);
     profileEditForm.classList.add("hidden");
     profileDialog.showModal();
   }
@@ -182,6 +184,8 @@
     profileEditForm.elements.bio.value = currentProfile?.bio || "";
     profileEditForm.elements.avatar_url.value = currentProfile?.avatar_url || "";
     profileEditForm.elements.banner_url.value = currentProfile?.banner_url || "";
+    profileEditForm.elements.dm_policy.value = currentProfile?.dm_policy || "everyone";
+    loadOwnStreamsIntoForm();
     profileEditForm.classList.remove("hidden");
     $("editProfileOpen").classList.add("hidden");
     message("profileEditMessage", "");
@@ -207,12 +211,15 @@
     message("profileEditMessage", "Saving...");
     const { error } = await db.from("profiles").update({
       display_name: displayName, bio,
-      avatar_url: avatarUrl || null, banner_url: bannerUrl || null
+      avatar_url: avatarUrl || null, banner_url: bannerUrl || null,
+      dm_policy: String(form.get("dm_policy") || "everyone")
     }).eq("id", currentUser.id);
     $("profileSave").disabled = false;
     if (error) return message("profileEditMessage", error.message, true);
     await loadProfile();
+    await saveOwnStreams(form);
     renderProfile();
+    loadProfileExtras(currentProfile);
     profileEditForm.classList.add("hidden");
     $("editProfileOpen").classList.remove("hidden");
     message("profileEditMessage", "Profile updated successfully.");
@@ -271,6 +278,232 @@
   $("rankingNext").addEventListener("click", () => { if ((rankingPage + 1) * rankingPageSize < rankingTotal) { rankingPage++; loadRanking(); } });
   $("mobileMenu").addEventListener("click", () => $("navigation").classList.toggle("open"));
   $("navigation").querySelectorAll("a").forEach(a => a.addEventListener("click", () => $("navigation").classList.remove("open")));
+
+
+  // ---------- Community: profile history, friends, DMs, groups, clans ----------
+  let activeConversationId = null;
+  let activeConversationTitle = "";
+  let activeProfileId = null;
+  const communityDialog = $("communityDialog");
+  const chatDialog = $("chatDialog");
+
+  async function loadProfileExtras(profile) {
+    if (!db || !profile) return;
+    activeProfileId = profile.id;
+    const matchBox = $("profileMatches");
+    const streamBox = $("profileStreams");
+    const actionBox = $("profileActions");
+    if (matchBox) {
+      const { data, error } = await db.from("public_player_matches")
+        .select("id,opponent_username,player_score,opponent_score,points_change,result,created_at")
+        .eq("player_id", profile.id).order("created_at", { ascending: false }).limit(10);
+      if (error) matchBox.innerHTML = '<p class="muted small">Could not load match history.</p>';
+      else if (!data?.length) matchBox.innerHTML = '<p class="muted small">No approved matches yet.</p>';
+      else matchBox.innerHTML = data.map(m => '<article class="profile-match"><span class="match-result ' + (m.result === "win" ? "match-win" : "match-loss") + '">' + (m.result === "win" ? "W" : "L") + '</span><span><b>vs @' + escapeHtml(m.opponent_username) + '</b><small>' + Number(m.player_score) + '–' + Number(m.opponent_score) + ' · ' + new Date(m.created_at).toLocaleDateString() + '</small></span><strong>' + (m.points_change > 0 ? "+" : "") + Number(m.points_change) + ' pts</strong></article>').join("");
+    }
+    if (streamBox) {
+      const { data } = await db.from("player_streams").select("platform,url").eq("user_id", profile.id);
+      streamBox.innerHTML = data?.length ? '<div class="stream-links">' + data.map(x => '<a target="_blank" rel="noopener noreferrer" href="' + escapeHtml(x.url) + '">' + escapeHtml(x.platform.toUpperCase()) + ' ↗</a>').join("") + '</div>' : "";
+    }
+    if (actionBox) {
+      if (currentUser?.id === profile.id) {
+        actionBox.innerHTML = '<span class="muted small">DM privacy: ' + ({nobody:"Not accepting DMs",friends:"Friends only",everyone:"Everyone"}[profile.dm_policy || "everyone"]) + '</span>';
+      } else if (!currentUser) {
+        actionBox.innerHTML = '<button class="button button-outline" type="button" data-profile-login>Log in to connect</button>';
+      } else {
+        const { data: friends } = await db.rpc("are_friends", {p_user_a:currentUser.id,p_user_b:profile.id});
+        const { data: pending } = await db.from("friend_requests").select("id,requester_id,addressee_id,status")
+          .or('and(requester_id.eq.' + currentUser.id + ',addressee_id.eq.' + profile.id + '),and(requester_id.eq.' + profile.id + ',addressee_id.eq.' + currentUser.id + ')').eq("status","pending").limit(1);
+        const dmAllowed = profile.dm_policy === "everyone" || (profile.dm_policy === "friends" && friends === true);
+        actionBox.innerHTML = (friends ? '<span class="muted small">Friends</span>' : pending?.length ? '<span class="muted small">Friend request pending</span>' : '<button class="button button-outline" type="button" data-add-friend="' + escapeHtml(profile.id) + '">Add friend</button>') +
+          (dmAllowed ? '<button class="button button-primary" type="button" data-message-player="' + escapeHtml(profile.id) + '">Message</button>' : '<span class="muted small">' + (profile.dm_policy === "nobody" ? "This player is not accepting DMs." : "Add each other as friends to send a DM.") + '</span>');
+      }
+    }
+  }
+
+  async function loadOwnStreamsIntoForm() {
+    if (!db || !currentUser) return;
+    const { data } = await db.from("player_streams").select("platform,url").eq("user_id",currentUser.id);
+    for (const platform of ["youtube","twitch","kick"]) {
+      const input = profileEditForm.elements["stream_" + platform];
+      if (input) input.value = data?.find(x => x.platform === platform)?.url || "";
+    }
+  }
+
+  async function saveOwnStreams(form) {
+    if (!db || !currentUser) return;
+    for (const platform of ["youtube","twitch","kick"]) {
+      const url = String(form.get("stream_" + platform) || "").trim();
+      if (!url) {
+        await db.from("player_streams").delete().eq("user_id",currentUser.id).eq("platform",platform);
+      } else {
+        const { error } = await db.from("player_streams").upsert({user_id:currentUser.id,platform,url},{onConflict:"user_id,platform"});
+        if (error) console.error("Could not save " + platform + " link:",error);
+      }
+    }
+  }
+
+  async function startDirectMessage(playerId) {
+    if (!currentUser) { setAuthMode("login"); authDialog.showModal(); return; }
+    const { data, error } = await db.rpc("create_conversation",{p_member_ids:[playerId],p_title:null});
+    if (error) { alert(error.message); return; }
+    profileDialog.close();
+    await openChat(data,"Direct message");
+  }
+
+  async function openChat(conversationId,title) {
+    activeConversationId = conversationId;
+    activeConversationTitle = title || "Conversation";
+    $("chatTitle").textContent = activeConversationTitle;
+    $("chatMessages").innerHTML = '<p class="muted small">Loading messages...</p>';
+    chatDialog.showModal();
+    await loadChatMessages();
+  }
+
+  async function loadChatMessages() {
+    if (!db || !activeConversationId) return;
+    const { data,error } = await db.from("messages").select("id,sender_id,body,created_at").eq("conversation_id",activeConversationId).order("created_at",{ascending:true}).limit(100);
+    if (error) { $("chatMessages").textContent = error.message; return; }
+    $("chatMessages").innerHTML = data?.length ? data.map(m => '<article class="chat-message ' + (m.sender_id===currentUser.id?"chat-mine":"") + '"><p>' + escapeHtml(m.body) + '</p><small>' + new Date(m.created_at).toLocaleString() + '</small></article>').join("") : '<p class="muted small">No messages yet. Start the conversation.</p>';
+    $("chatMessages").scrollTop = $("chatMessages").scrollHeight;
+  }
+
+  $("chatForm").addEventListener("submit",async event=>{
+    event.preventDefault();
+    if (!currentUser || !activeConversationId) return;
+    const body=String(new FormData(event.currentTarget).get("body")||"").trim();
+    if (!body) return;
+    const {error}=await db.from("messages").insert({conversation_id:activeConversationId,sender_id:currentUser.id,body});
+    if (error) { message("chatStatus",error.message,true); return; }
+    event.currentTarget.reset(); message("chatStatus",""); await loadChatMessages();
+  });
+
+  async function showCommunity(section="messages") {
+    if (!currentUser) { setAuthMode("login"); authDialog.showModal(); return; }
+    $("communityTitle").textContent = section==="clans"?"Clans":section==="ranking"?"Clan ranking":section==="friends"?"Friends":"Messages";
+    $("communityContent").innerHTML = '<p class="muted">Loading...</p>';
+    communityDialog.showModal();
+    if (section==="messages") await renderConversations();
+    if (section==="friends") await renderFriends();
+    if (section==="clans") await renderClans();
+    if (section==="ranking") await renderClanRanking();
+  }
+
+  async function renderConversations() {
+    const {data,error}=await db.from("conversation_participants")
+      .select("conversation_id,conversations(id,title,conversation_type,created_at)")
+      .eq("user_id",currentUser.id).order("joined_at",{ascending:false});
+    if (error) { $("communityContent").textContent=error.message; return; }
+    const rows=(data||[]).map(x=>x.conversations).filter(Boolean);
+    $("communityContent").innerHTML='<div class="community-actions"><button class="button button-outline" data-community="friends">Friends</button><button class="button button-outline" data-community="new-group">Create group</button></div>' +
+      (rows.length?rows.map(c=>'<button class="conversation-row" data-open-chat="' + c.id + '" data-chat-title="' + escapeHtml(c.title || "Direct message") + '"><span><b>' + escapeHtml(c.title || "Direct message") + '</b><small>' + (c.conversation_type==="group"?"Group":"Private chat") + '</small></span><span>Open →</span></button>').join(""):'<p class="muted small">No conversations yet. Open a player profile and choose Message.</p>');
+  }
+
+  async function renderFriends() {
+    const {data,error}=await db.from("friend_requests").select("id,requester_id,addressee_id,status,created_at,requester:profiles!friend_requests_requester_id_fkey(username,display_name),addressee:profiles!friend_requests_addressee_id_fkey(username,display_name)")
+      .or('requester_id.eq.'+currentUser.id+',addressee_id.eq.'+currentUser.id).order("created_at",{ascending:false});
+    if (error) { $("communityContent").textContent=error.message; return; }
+    const incoming=(data||[]).filter(x=>x.addressee_id===currentUser.id&&x.status==="pending");
+    const friends=(data||[]).filter(x=>x.status==="accepted");
+    const outgoing=(data||[]).filter(x=>x.requester_id===currentUser.id&&x.status==="pending");
+    $("communityContent").innerHTML='<div class="community-actions"><button class="button button-outline" data-community="messages">Messages</button></div><h3>Friend requests</h3>' +
+      (incoming.length?incoming.map(x=>'<article class="community-row"><span>@'+escapeHtml(x.requester?.username||"player")+'</span><span><button class="button button-primary" data-friend-response="'+x.id+'" data-accept="true">Accept</button> <button class="button button-outline" data-friend-response="'+x.id+'" data-accept="false">Decline</button></span></article>').join(""):'<p class="muted small">No incoming requests.</p>')+
+      '<h3>Your friends</h3>'+(friends.length?friends.map(x=>'<article class="community-row"><b>@'+escapeHtml((x.requester_id===currentUser.id?x.addressee:x.requester)?.username||"player")+'</b><span>Friends</span></article>').join(""):'<p class="muted small">No friends added yet.</p>')+
+      (outgoing.length?'<p class="muted small">Outgoing requests: '+outgoing.length+'</p>':'');
+  }
+
+  async function renderClans() {
+    const {data:my,error:myError}=await db.from("clan_members").select("clan_id,member_role,clans(id,name,slug,description)").eq("user_id",currentUser.id).maybeSingle();
+    if (myError) { $("communityContent").textContent=myError.message; return; }
+    const {data:clans,error}=await db.from("clan_ranking").select("*").order("points",{ascending:false}).limit(50);
+    if (error) { $("communityContent").textContent=error.message; return; }
+    let html='<div class="community-actions"><button class="button button-outline" data-community="ranking">Clan ranking</button></div>';
+    if (!my) html+='<form id="createClanForm" class="inline-form"><h3>Create a clan</h3><input name="name" required minlength="3" maxlength="32" placeholder="Clan name"><textarea name="description" maxlength="500" placeholder="Description"></textarea><button class="button button-primary">Create clan</button></form>';
+    else {
+      html+='<section class="my-clan"><h3>'+escapeHtml(my.clans?.name||"Your clan")+'</h3><p class="muted small">'+escapeHtml(my.clans?.description||"")+'</p><p>Your role: '+escapeHtml(my.member_role)+'</p><button class="button button-outline" data-leave-clan>Leave clan</button></section>';
+      const {data:members}=await db.from("clan_members").select("user_id,member_role,profiles(username,display_name,points)").eq("clan_id",my.clan_id);
+      html+='<h3>Roster ('+(members?.length||0)+'/4)</h3>'+(members||[]).map(m=>'<article class="community-row"><span>@'+escapeHtml(m.profiles?.username||"player")+' · '+escapeHtml(m.member_role)+'</span><b>'+Number(m.profiles?.points||0)+' pts</b></article>').join("");
+      if (my.member_role==="leader"||my.member_role==="vice_leader") {
+        const {data:reqs}=await db.from("clan_join_requests").select("id,user_id,profiles(username)").eq("clan_id",my.clan_id).eq("status","pending");
+        html+='<h3>Join requests</h3>'+(reqs?.length?reqs.map(r=>'<article class="community-row"><span>@'+escapeHtml(r.profiles?.username||"player")+'</span><button class="button button-primary" data-clan-request="'+r.id+'">Accept</button></article>').join(""):'<p class="muted small">No pending requests.</p>');
+      }
+    }
+    html+='<h3>Explore clans</h3>'+(clans||[]).map(c=>'<article class="community-row"><span><b>'+escapeHtml(c.name)+'</b><small>'+Number(c.member_count)+' / 4 members · '+Number(c.points)+' pts</small></span>'+(my?'':'<button class="button button-outline" data-join-clan="'+c.id+'">Request to join</button>')+'</article>').join("");
+    $("communityContent").innerHTML=html;
+  }
+
+  async function renderClanRanking() {
+    const {data,error}=await db.from("clan_ranking").select("*").order("points",{ascending:false}).limit(100);
+    if (error) { $("communityContent").textContent=error.message; return; }
+    $("communityContent").innerHTML='<div class="community-actions"><button class="button button-outline" data-community="clans">Back to clans</button></div><div class="clan-ranking-list">'+(data||[]).map((c,i)=>'<article class="community-row"><span><b>#'+(i+1)+' '+escapeHtml(c.name)+'</b><small>'+Number(c.member_count)+'/4 players</small></span><strong>'+Number(c.points).toLocaleString()+' pts</strong></article>').join("")+'</div>';
+  }
+
+  $("profileContent").addEventListener("click",async event=>{
+    const dm=event.target.closest("[data-message-player]");
+    const add=event.target.closest("[data-add-friend]");
+    const login=event.target.closest("[data-profile-login]");
+    if (dm) await startDirectMessage(dm.dataset.messagePlayer);
+    if (add) {
+      const {error}=await db.rpc("send_friend_request",{p_user_id:add.dataset.addFriend});
+      if (error) alert(error.message); else { alert("Friend request sent."); if (activeProfileId) { const {data}=await db.from("profiles").select("id,username,display_name,dm_policy").eq("id",activeProfileId).single(); if(data) loadProfileExtras(data); } }
+    }
+    if (login) { setAuthMode("login"); authDialog.showModal(); }
+  });
+
+  $("communityContent").addEventListener("click",async event=>{
+    const community=event.target.closest("[data-community]");
+    const open=event.target.closest("[data-open-chat]");
+    const response=event.target.closest("[data-friend-response]");
+    const join=event.target.closest("[data-join-clan]");
+    const accept=event.target.closest("[data-clan-request]");
+    const leave=event.target.closest("[data-leave-clan]");
+    if (community) {
+      if (community.dataset.community==="new-group") {
+        $("communityContent").innerHTML='<form id="newGroupForm" class="inline-form"><h3>New group</h3><input name="title" required maxlength="60" placeholder="Group name"><textarea name="usernames" required placeholder="Player usernames, separated by commas"></textarea><button class="button button-primary">Create group</button></form>';
+      } else await showCommunity(community.dataset.community);
+    }
+    if (open) await openChat(open.dataset.openChat,open.dataset.chatTitle);
+    if (response) {
+      const {error}=await db.rpc("respond_friend_request",{p_request_id:response.dataset.friendResponse,p_accept:response.dataset.accept==="true"});
+      if(error) alert(error.message); else await renderFriends();
+    }
+    if (join) {
+      const {error}=await db.rpc("request_clan_join",{p_clan_id:join.dataset.joinClan});
+      if(error) alert(error.message); else { alert("Join request sent."); await renderClans(); }
+    }
+    if (accept) {
+      const {error}=await db.rpc("review_clan_join_request",{p_request_id:accept.dataset.clanRequest,p_accept:true});
+      if(error) alert(error.message); else await renderClans();
+    }
+    if (leave && confirm("Leave your current clan?")) {
+      const {error}=await db.rpc("leave_clan");
+      if(error) alert(error.message); else await renderClans();
+    }
+  });
+
+  $("communityContent").addEventListener("submit",async event=>{
+    if (event.target.id==="createClanForm") {
+      event.preventDefault();
+      const fd=new FormData(event.target);
+      const {error}=await db.rpc("create_clan",{p_name:String(fd.get("name")).trim(),p_description:String(fd.get("description")||"").trim()});
+      if(error) alert(error.message); else await renderClans();
+    }
+    if (event.target.id==="newGroupForm") {
+      event.preventDefault();
+      const fd=new FormData(event.target);
+      const usernames=String(fd.get("usernames")).split(",").map(x=>x.trim().toLowerCase()).filter(Boolean);
+      if (!usernames.length) return;
+      const {data:players,error:lookupError}=await db.from("profiles").select("id,username").in("username",usernames);
+      if(lookupError) return alert(lookupError.message);
+      if(players.length!==usernames.length) return alert("One or more usernames were not found.");
+      const {data,error}=await db.rpc("create_conversation",{p_member_ids:players.map(x=>x.id),p_title:String(fd.get("title")).trim()});
+      if(error) alert(error.message); else { communityDialog.close(); await openChat(data,String(fd.get("title"))); }
+    }
+  });
+
+  $("openMessages").addEventListener("click",()=>showCommunity("messages"));
+  $("openClans").addEventListener("click",()=>showCommunity("clans"));
+  $("openClanRanking").addEventListener("click",()=>showCommunity("ranking"));
 
   if (db) {
     db.auth.onAuthStateChange((_event, session) => {
