@@ -12,6 +12,7 @@
   const authDialog = $("authDialog");
   const profileDialog = $("profileDialog");
   const adminDialog = $("adminDialog");
+  const profileEditForm = $("profileEditForm");
 
   function message(id, text, isError = false) {
     const el = $(id);
