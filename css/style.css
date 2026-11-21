@@ -151,3 +151,7 @@ footer .brand{font-size:16px}
 .user-chip{width:42px;height:42px;padding:3px;display:inline-flex;align-items:center;justify-content:center;overflow:hidden;border-radius:50%;background:#273139;border:1px solid #566674;color:#d6e2eb;flex:0 0 42px}
 .account-avatar{display:block;width:100%;height:100%;border-radius:50%;object-fit:cover}
 .account-avatar-fallback{width:100%;height:100%;display:grid;place-items:center;border-radius:50%;background:#34434d;color:#d6e2eb;font-size:15px;font-weight:800}
+
+
+/* Administrator match review */
+.admin-submission{border-radius:4px}.admin-submission-heading{font-size:13px}.admin-submission-score{margin:8px 0}.admin-submission-score strong{color:#e5edf3}.admin-review-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid #39454d}.admin-review-actions button:disabled{opacity:.5;cursor:wait}.admin-submission>a{display:inline-block;margin:5px 0}
