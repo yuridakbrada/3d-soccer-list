@@ -9,6 +9,9 @@
   let mode = "login";
   let currentUser = null;
   let currentProfile = null;
+  let rankingPage = 0;
+  const rankingPageSize = 25;
+  let rankingTotal = 0;
   const authDialog = $("authDialog");
   const profileDialog = $("profileDialog");
   const adminDialog = $("adminDialog");
@@ -73,18 +76,29 @@
   }
   async function loadRanking() {
     if (!db) return;
-    const { data, error } = await db.from("public_ranking").select("*").order("points", { ascending: false }).limit(200);
+    const q = $("playerSearch").value.trim();
+    const division = $("divisionFilter").value;
+    let query = db.from("public_ranking").select("*", { count: "exact" });
+    if (q) query = query.ilike("username", "%" + q.replace(/[%_,]/g, "") + "%");
+    if (division) query = query.eq("division", division);
+    const from = rankingPage * rankingPageSize;
+    const { data, error, count } = await query.order("points", { ascending: false }).order("username", { ascending: true }).range(from, from + rankingPageSize - 1);
     if (error) { $("rankingStatus").textContent = "Could not load ranking. Check the Supabase schema and permissions."; console.error(error); return; }
+    rankingTotal = count || 0;
     renderRanking(data || []);
-    $("rankingStatus").textContent = (data?.length || 0) + " ranked players";
+    const pages = Math.max(1, Math.ceil(rankingTotal / rankingPageSize));
+    $("rankingStatus").textContent = rankingTotal + " ranked players · showing " + (rankingTotal ? from + 1 : 0) + "–" + Math.min(from + rankingPageSize, rankingTotal);
+    $("rankingPageLabel").textContent = "Page " + (rankingPage + 1) + " of " + pages;
+    $("rankingPrev").disabled = rankingPage === 0;
+    $("rankingNext").disabled = rankingPage + 1 >= pages;
   }
   function renderRanking(rows) {
-    const q = $("playerSearch").value.trim().toLowerCase();
-    const division = $("divisionFilter").value;
-    const filtered = rows.filter(p => (p.username || "").toLowerCase().includes(q) && (!division || p.division === division));
-    $("rankingRows").innerHTML = filtered.length ? filtered.map((p, i) =>
-      `<tr><td>${i + 1}</td><td><strong>${escapeHtml(p.display_name || p.username)}</strong><div class="muted tiny">@${escapeHtml(p.username)}</div></td><td>${escapeHtml(p.division)}</td><td><strong>${Number(p.points).toLocaleString()}</strong></td><td>${p.wins || 0}-${p.losses || 0}</td></tr>`
-    ).join("") : '<tr><td colspan="5" class="empty">No players found.</td></tr>';
+    $("rankingRows").innerHTML = rows.length ? rows.map((p, i) => {
+      const avatar = p.avatar_url
+        ? '<img class="ranking-avatar" src="' + escapeHtml(p.avatar_url) + '" alt="" loading="lazy" referrerpolicy="no-referrer">'
+        : '<span class="ranking-avatar ranking-avatar-fallback" aria-hidden="true">' + escapeHtml((p.display_name || p.username || "?").charAt(0).toUpperCase()) + '</span>';
+      return '<tr class="ranking-player-row"><td>' + (rankingPage * rankingPageSize + i + 1) + '</td><td><button class="ranking-player" type="button" data-player-id="' + escapeHtml(p.id) + '">' + avatar + '<span><strong>' + escapeHtml(p.display_name || p.username) + '</strong><span class="muted tiny">@' + escapeHtml(p.username) + '</span></span></button></td><td>' + escapeHtml(p.division) + '</td><td><strong>' + Number(p.points).toLocaleString() + '</strong></td><td>' + (p.wins || 0) + '-' + (p.losses || 0) + '</td></tr>';
+    }).join("") : '<tr><td colspan="5" class="empty">No players found.</td></tr>';
   }
   function escapeHtml(value) {
     return String(value ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
@@ -100,16 +114,38 @@
     $("editProfileOpen").classList.remove("hidden");
     profileDialog.showModal();
   });
-  function renderProfile() {
-    $("profileTitle").innerHTML = '<em>@' + escapeHtml(currentProfile?.username || "player") + '</em>';
-    if (!currentProfile) {
-      $("profileContent").innerHTML = '<p class="muted">Your profile is being prepared.</p>';
+  function renderProfile(profile = currentProfile) {
+    const viewedProfile = profile;
+    const isOwnProfile = !!currentUser && !!viewedProfile && currentUser.id === viewedProfile.id;
+    $("editProfileOpen").classList.toggle("hidden", !isOwnProfile);
+    $("logoutButton").classList.toggle("hidden", !isOwnProfile);
+    $("profileTitle").innerHTML = '<em>@' + escapeHtml(viewedProfile?.username || "player") + '</em>';
+    if (!viewedProfile) {
+      $("profileContent").innerHTML = '<p class="muted">Profile unavailable.</p>';
       return;
     }
-    const banner = currentProfile.banner_url ? '<img class="profile-banner" src="' + escapeHtml(currentProfile.banner_url) + '" alt="Profile banner" referrerpolicy="no-referrer">' : "";
-    const avatar = currentProfile.avatar_url ? '<img class="profile-avatar" src="' + escapeHtml(currentProfile.avatar_url) + '" alt="Profile avatar" referrerpolicy="no-referrer">' : "";
-    $("profileContent").innerHTML = banner + '<div class="profile-identity">' + avatar + '<div><strong>' + escapeHtml(currentProfile.display_name || currentProfile.username) + '</strong><div class="muted tiny">@' + escapeHtml(currentProfile.username) + '</div></div></div><div class="profile-stat"><b>' + Number(currentProfile.points).toLocaleString() + ' points</b> · ' + escapeHtml(currentProfile.division) + '</div><p>' + escapeHtml(currentProfile.bio || "No biography yet.") + '</p><p class="muted small">Wins: ' + (currentProfile.wins || 0) + ' · Losses: ' + (currentProfile.losses || 0) + '</p>';
+    const banner = viewedProfile.banner_url ? '<img class="profile-banner" src="' + escapeHtml(viewedProfile.banner_url) + '" alt="Profile banner" referrerpolicy="no-referrer">' : "";
+    const avatar = viewedProfile.avatar_url ? '<img class="profile-avatar" src="' + escapeHtml(viewedProfile.avatar_url) + '" alt="Profile avatar" referrerpolicy="no-referrer">' : "";
+    $("profileContent").innerHTML = banner + '<div class="profile-identity">' + avatar + '<div><strong>' + escapeHtml(viewedProfile.display_name || viewedProfile.username) + '</strong><div class="muted tiny">@' + escapeHtml(viewedProfile.username) + '</div></div></div><div class="profile-stat"><b>' + Number(viewedProfile.points).toLocaleString() + ' points</b> · ' + escapeHtml(viewedProfile.division) + '</div><p>' + escapeHtml(viewedProfile.bio || "No biography yet.") + '</p><p class="muted small">Wins: ' + (viewedProfile.wins || 0) + ' · Losses: ' + (viewedProfile.losses || 0) + '</p>';
   }
+  async function openPlayerProfile(playerId) {
+    if (!db) return;
+    if (currentUser?.id === playerId && currentProfile) {
+      renderProfile(currentProfile);
+      profileEditForm.classList.add("hidden");
+      profileDialog.showModal();
+      return;
+    }
+    const { data, error } = await db.from("profiles").select("id, username, display_name, bio, points, division, wins, losses, avatar_url, banner_url").eq("id", playerId).maybeSingle();
+    if (error || !data) { console.error(error); return; }
+    renderProfile(data);
+    profileEditForm.classList.add("hidden");
+    profileDialog.showModal();
+  }
+  $("rankingRows").addEventListener("click", event => {
+    const button = event.target.closest("[data-player-id]");
+    if (button) openPlayerProfile(button.dataset.playerId);
+  });
   $("editProfileOpen").addEventListener("click", () => {
     profileEditForm.elements.display_name.value = currentProfile?.display_name || "";
     profileEditForm.elements.bio.value = currentProfile?.bio || "";
@@ -198,8 +234,10 @@
     message("matchMessage", "Match submitted for review. Your points will change only after staff approval.");
   });
 
-  $("playerSearch").addEventListener("input", loadRanking);
-  $("divisionFilter").addEventListener("change", loadRanking);
+  $("playerSearch").addEventListener("input", () => { rankingPage = 0; loadRanking(); });
+  $("divisionFilter").addEventListener("change", () => { rankingPage = 0; loadRanking(); });
+  $("rankingPrev").addEventListener("click", () => { if (rankingPage > 0) { rankingPage--; loadRanking(); } });
+  $("rankingNext").addEventListener("click", () => { if ((rankingPage + 1) * rankingPageSize < rankingTotal) { rankingPage++; loadRanking(); } });
   $("mobileMenu").addEventListener("click", () => $("navigation").classList.toggle("open"));
   $("navigation").querySelectorAll("a").forEach(a => a.addEventListener("click", () => $("navigation").classList.remove("open")));
 
