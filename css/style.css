@@ -94,3 +94,16 @@ footer .brand{font-size:16px}
   .hero{min-height:360px}
   .hero h1{font-size:clamp(42px,12vw,60px)}
 }
+
+/* Ranking profiles and pagination */
+.ranking-footer{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;padding-top:14px}
+.ranking-pagination{display:flex;align-items:center;gap:12px;color:#b9c5cd;font-size:12px}
+.ranking-pagination .button{padding:8px 12px}
+.ranking-pagination .button:disabled{opacity:.38;cursor:not-allowed}
+.ranking-player{display:flex;align-items:center;gap:11px;border:0;background:transparent;color:inherit;padding:0;text-align:left;cursor:pointer;width:100%;min-height:42px}
+.ranking-player>span:last-child{display:flex;flex-direction:column;gap:3px}
+.ranking-player:hover strong{color:#b6d2e9;text-decoration:underline}
+.ranking-avatar{width:38px;height:38px;flex:0 0 38px;object-fit:cover;border-radius:50%;border:1px solid #566674;background:#29343c}
+.ranking-avatar-fallback{display:grid;place-items:center;color:#d6e2eb;font-weight:700;font-size:14px}
+.ranking-player-row td{vertical-align:middle}
+@media(max-width:600px){.ranking-footer{align-items:flex-start}.ranking-pagination{width:100%;justify-content:space-between}}
