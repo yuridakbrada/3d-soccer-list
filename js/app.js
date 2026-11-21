@@ -134,7 +134,7 @@
     const bannerUrl = String(form.get("banner_url") || "").trim();
     if (!displayName) return message("profileEditMessage", "Display name is required.", true);
     for (const value of [avatarUrl, bannerUrl]) {
-      if (value && !/^https?:\\/\\//i.test(value)) return message("profileEditMessage", "Image URLs must begin with http:// or https://.", true);
+      if (value && !/^https?:\/\//i.test(value)) return message("profileEditMessage", "Image URLs must begin with http:// or https://.", true);
     }
     $("profileSave").disabled = true;
     message("profileEditMessage", "Saving...");
