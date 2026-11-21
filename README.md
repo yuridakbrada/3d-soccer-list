@@ -51,8 +51,8 @@ The frontend is a static site. Supabase will provide authentication and persiste
 5. Run `supabase/clan-management-migration.sql` for clan invitations, member removal and vice-leader management.
 6. Run `supabase/match-review-migration.sql` to enable secure administrator approval and rejection of match submissions.
 7. Copy `js/supabase-config.example.js` to `js/supabase-config.js`.
-7. Add your Supabase project URL and publishable (anon) key to that local config file.
-8. Open `index.html` through a local development server or deploy it to static hosting.
+8. Add your Supabase project URL and publishable (anon) key to that local config file.
+9. Open `index.html` through a local development server or deploy it to static hosting.
 
 Never commit a Supabase `service_role` key, database password, or other secret.
 
