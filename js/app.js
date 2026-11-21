@@ -101,11 +101,51 @@
   async function loadAdminSubmissions() {
     const target = $("adminSubmissions");
     target.innerHTML = '<p class="muted">Loading submissions...</p>';
-    const { data, error } = await db.from("match_submissions").select("id, opponent_username, submitter_score, opponent_score, evidence_url, notes, created_at, profiles(username)").eq("status", "pending").order("created_at", { ascending: true });
+    const { data, error } = await db.from("match_submissions")
+      .select("id, opponent_username, submitter_score, opponent_score, evidence_url, notes, created_at, profiles(username,display_name,points,division)")
+      .eq("status", "pending").order("created_at", { ascending: true });
     if (error) { target.textContent = "Could not load submissions: " + error.message; return; }
     if (!data?.length) { target.innerHTML = '<p class="muted">No pending submissions.</p>'; return; }
-    target.innerHTML = data.map(item => `<article class="admin-submission"><strong>@${escapeHtml(item.profiles?.username || "unknown")}</strong> vs <strong>@${escapeHtml(item.opponent_username)}</strong><br>Score: ${item.submitter_score}–${item.opponent_score}<br><a href="${escapeHtml(item.evidence_url)}" target="_blank" rel="noopener noreferrer">Open evidence</a>${item.notes ? `<p>${escapeHtml(item.notes)}</p>` : ""}<small class="muted">${new Date(item.created_at).toLocaleString()}</small></article>`).join("");
+    target.innerHTML = data.map(item => `
+      <article class="admin-submission">
+        <div class="admin-submission-heading"><strong>@${escapeHtml(item.profiles?.username || "unknown")}</strong> vs <strong>@${escapeHtml(item.opponent_username)}</strong></div>
+        <p class="admin-submission-score">Score: <strong>${item.submitter_score}–${item.opponent_score}</strong></p>
+        <p class="muted small">Submitter: ${Number(item.profiles?.points ?? 0).toLocaleString()} pts · ${escapeHtml(item.profiles?.division || "Unknown division")}</p>
+        <a href="${escapeHtml(item.evidence_url)}" target="_blank" rel="noopener noreferrer">Open evidence ↗</a>
+        ${item.notes ? `<p>${escapeHtml(item.notes)}</p>` : ""}
+        <small class="muted">${new Date(item.created_at).toLocaleString()}</small>
+        <div class="admin-review-actions">
+          <button class="button button-primary" type="button" data-review-action="approve" data-submission-id="${escapeHtml(item.id)}">Approve</button>
+          <button class="button button-ghost" type="button" data-review-action="reject" data-submission-id="${escapeHtml(item.id)}">Reject</button>
+        </div>
+      </article>`).join("");
   }
+  $("adminSubmissions").addEventListener("click", async event => {
+    const button = event.target.closest("[data-review-action]");
+    if (!button || !currentUser) return;
+    const approve = button.dataset.reviewAction === "approve";
+    const action = approve ? "approve" : "reject";
+    if (!window.confirm(`Are you sure you want to ${action} this match submission?`)) return;
+    const card = button.closest(".admin-submission");
+    card?.querySelectorAll("button").forEach(control => { control.disabled = true; });
+    const { error } = await db.rpc("review_match_submission", {
+      p_submission_id: button.dataset.submissionId,
+      p_approve: approve,
+      p_review_note: null
+    });
+    if (error) {
+      if (card) {
+        const status = document.createElement("p");
+        status.className = "form-message";
+        status.textContent = "Could not " + action + ": " + error.message;
+        card.append(status);
+        card.querySelectorAll("button").forEach(control => { control.disabled = false; });
+      }
+      return;
+    }
+    await loadAdminSubmissions();
+    await loadRanking();
+  });
   async function refreshSession() {
     if (!db) return;
     const { data } = await db.auth.getSession();
