@@ -39,7 +39,7 @@
     <div class="section-head"><div><p class="eyebrow">THE LEADERBOARD</p><h2>Global <em>ranking</em></h2></div><p class="section-aside">OFFICIAL PLAYER STANDINGS</p></div>
     <div class="toolbar"><input id="playerSearch" type="search" placeholder="Search players..." aria-label="Search players"><select id="divisionFilter" aria-label="Filter by division"><option value="">All divisions</option><option>Beginner</option><option>Intermediate</option><option>Advanced</option><option>Professional</option><option>Legend</option><option>Master</option><option>Professor</option></select></div>
     <div class="table-wrap"><table><thead><tr><th>#</th><th>PLAYER</th><th>DIVISION</th><th>POINTS</th><th>W-L</th></tr></thead><tbody id="rankingRows"><tr><td colspan="5" class="empty">Connect the Supabase project to load the official ranking.</td></tr></tbody></table></div>
-    <p class="muted small" id="rankingStatus">Leaderboard data will appear here when the database is configured.</p>
+    <div class="ranking-footer"><p class="muted small" id="rankingStatus">Leaderboard data will appear here when the database is configured.</p><div class="ranking-pagination"><button class="button button-outline" id="rankingPrev" type="button" disabled>Previous</button><span id="rankingPageLabel">Page 1</span><button class="button button-outline" id="rankingNext" type="button" disabled>Next</button></div></div>
   </section>
 
   <section class="section section-alt" id="divisions">
