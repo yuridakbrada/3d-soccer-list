@@ -34,8 +34,7 @@ as $$
 $$;
 
 -- Publish staff role to the public leaderboard.
-drop view if exists public.public_ranking;
-create view public.public_ranking as
+create or replace view public.public_ranking as
 select id, username, display_name, points, division, wins, losses, avatar_url, staff_role
 from public.profiles;
 
