@@ -89,7 +89,7 @@
   }
   async function loadProfile() {
     if (!db || !currentUser) return;
-    const { data, error } = await db.from("profiles").select("id, username, display_name, bio, points, division, wins, losses, avatar_url, banner_url, dm_policy, match_policy").eq("id", currentUser.id).maybeSingle();
+    const { data, error } = await db.from("profiles").select("id, username, display_name, bio, points, division, wins, losses, avatar_url, banner_url, dm_policy, match_policy, staff_role").eq("id", currentUser.id).maybeSingle();
     if (error) { console.error(error); return; }
     currentProfile = data;
     if (data) showSignedIn(data);
@@ -196,6 +196,16 @@
       points <= 2000 ? 3 : points <= 3000 ? 4 : points <= 4000 ? 5 : 6;
     return divisionMeta[index];
   }
+  function staffBadge(profile) {
+    const role = profile?.staff_role;
+    const roles = {
+      owner: { label: "Owner", icon: "assets/dono.svg" },
+      admin: { label: "Administrator", icon: "assets/administrador.svg" },
+      moderator: { label: "Moderator", icon: "assets/moderador.svg" }
+    };
+    const meta = roles[role];
+    return meta ? '<img class="staff-role-icon" src="' + meta.icon + '" alt="' + meta.label + '" title="' + meta.label + '" loading="lazy">' : "";
+  }
   function divisionBadge(profile) {
     const division = getDivisionMeta(profile);
     return '<span class="division-badge" style="--division-color:' + division.color +
@@ -240,7 +250,7 @@
       profileDialog.showModal();
       return;
     }
-    const { data, error } = await db.from("profiles").select("id, username, display_name, bio, points, division, wins, losses, avatar_url, banner_url, dm_policy").eq("id", playerId).maybeSingle();
+    const { data, error } = await db.from("profiles").select("id, username, display_name, bio, points, division, wins, losses, avatar_url, banner_url, dm_policy, staff_role").eq("id", playerId).maybeSingle();
     if (error || !data) { console.error(error); return; }
     renderProfile(data);
     loadProfileExtras(data);
