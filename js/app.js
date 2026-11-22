@@ -529,9 +529,9 @@
     const outgoing=(data||[]).filter(x=>x.challenger_id===currentUser.id&&x.status==="pending");
     const history=(data||[]).filter(x=>x.status!=="pending");
     $("communityContent").innerHTML='<div class="community-actions"><button class="button button-outline" data-community="messages">Messages</button><button class="button button-outline" data-community="friends">Friends</button><button class="button button-outline" data-enable-match-notifications>Enable browser notifications</button></div><h3>Incoming challenges</h3>'+
-      (incoming.length?incoming.map(x=>'<article class="community-row"><span><b>@'+escapeHtml(x.challenger?.username||"player")+'</b><small>Wants to play a match · '+new Date(x.created_at).toLocaleString()+'</small></span><span><button class="button button-primary" data-match-response="'+x.id+'" data-accept="true">Accept</button> <button class="button button-outline" data-match-response="'+x.id+'" data-accept="false">Decline</button></span></article>').join(""):'<p class="muted small">No incoming match challenges.</p>')+
-      '<h3>Sent by you</h3>'+(outgoing.length?outgoing.map(x=>'<article class="community-row"><span>@'+escapeHtml(x.challenged?.username||"player")+'</span><small>Pending</small></article>').join(""):'<p class="muted small">No outgoing challenges waiting for a response.</p>')+
-      '<h3>Recent decisions</h3>'+(history.length?history.slice(0,10).map(x=>'<article class="community-row"><span>@'+escapeHtml((x.challenger_id===currentUser.id?x.challenged:x.challenger)?.username||"player")+'</span><small>'+({accepted:"Accepted",rejected:"Declined",cancelled:"Cancelled"}[x.status]||x.status)+'</small></article>').join(""):'<p class="muted small">No previous decisions.</p>');
+      (incoming.length?incoming.map(x=>'<article class="community-row"><span><b>'+communityPlayerName(x.challenger)+'</b><small>Wants to play a match · '+new Date(x.created_at).toLocaleString()+'</small></span><span><button class="button button-primary" data-match-response="'+x.id+'" data-accept="true">Accept</button> <button class="button button-outline" data-match-response="'+x.id+'" data-accept="false">Decline</button></span></article>').join(""):'<p class="muted small">No incoming match challenges.</p>')+
+      '<h3>Sent by you</h3>'+(outgoing.length?outgoing.map(x=>'<article class="community-row"><span>'+communityPlayerName(x.challenged)+'</span><small>Pending</small></article>').join(""):'<p class="muted small">No outgoing challenges waiting for a response.</p>')+
+      '<h3>Recent decisions</h3>'+(history.length?history.slice(0,10).map(x=>'<article class="community-row"><span>'+communityPlayerName(x.challenger_id===currentUser.id?x.challenged:x.challenger)+'</span><small>'+({accepted:"Accepted",rejected:"Declined",cancelled:"Cancelled"}[x.status]||x.status)+'</small></article>').join(""):'<p class="muted small">No previous decisions.</p>');
   }
 
   async function renderFriends() {
@@ -542,8 +542,8 @@
     const friends=(data||[]).filter(x=>x.status==="accepted");
     const outgoing=(data||[]).filter(x=>x.requester_id===currentUser.id&&x.status==="pending");
     $("communityContent").innerHTML='<div class="community-actions"><button class="button button-outline" data-community="messages">Messages</button><button class="button button-outline" data-community="match-requests">Match requests</button></div><h3>Friend requests</h3>' +
-      (incoming.length?incoming.map(x=>'<article class="community-row"><span>@'+escapeHtml(x.requester?.username||"player")+'</span><span><button class="button button-primary" data-friend-response="'+x.id+'" data-accept="true">Accept</button> <button class="button button-outline" data-friend-response="'+x.id+'" data-accept="false">Decline</button></span></article>').join(""):'<p class="muted small">No incoming requests.</p>')+
-      '<h3>Your friends</h3>'+(friends.length?friends.map(x=>'<article class="community-row"><b>@'+escapeHtml((x.requester_id===currentUser.id?x.addressee:x.requester)?.username||"player")+'</b><span>Friends</span></article>').join(""):'<p class="muted small">No friends added yet.</p>')+
+      (incoming.length?incoming.map(x=>'<article class="community-row"><span>'+communityPlayerName(x.requester)+'</span><span><button class="button button-primary" data-friend-response="'+x.id+'" data-accept="true">Accept</button> <button class="button button-outline" data-friend-response="'+x.id+'" data-accept="false">Decline</button></span></article>').join(""):'<p class="muted small">No incoming requests.</p>')+
+      '<h3>Your friends</h3>'+(friends.length?friends.map(x=>'<article class="community-row"><b>'+communityPlayerName(x.requester_id===currentUser.id?x.addressee:x.requester)+'</b><span>Friends</span></article>').join(""):'<p class="muted small">No friends added yet.</p>')+
       (outgoing.length?'<p class="muted small">Outgoing requests: '+outgoing.length+'</p>':'');
   }
 
@@ -559,11 +559,11 @@
     else {
       html+='<section class="my-clan"><h3>'+escapeHtml(my.clans?.name||"Your clan")+'</h3><p class="muted small">'+escapeHtml(my.clans?.description||"")+'</p><p>Your role: '+escapeHtml(my.member_role)+'</p><button class="button button-outline" data-leave-clan>Leave clan</button></section>';
       const {data:members}=await db.from("clan_members").select("user_id,member_role,profiles(username,display_name,points,staff_role,country_code)").eq("clan_id",my.clan_id);
-      html+='<h3>Roster ('+(members?.length||0)+'/4)</h3>'+(members||[]).map(m=>'<article class="community-row"><span>@'+escapeHtml(m.profiles?.username||"player")+' · '+escapeHtml(m.member_role)+'</span><span><b>'+Number(m.profiles?.points||0)+' pts</b>'+(my.member_role==="leader"&&m.user_id!==currentUser.id?' <button class="button button-outline" data-set-vice="'+m.user_id+'">Make vice</button> <button class="button button-outline" data-remove-member="'+m.user_id+'">Remove</button>':'')+'</span></article>').join("");
+      html+='<h3>Roster ('+(members?.length||0)+'/4)</h3>'+(members||[]).map(m=>'<article class="community-row"><span>'+communityPlayerName(m.profiles)+' · '+escapeHtml(m.member_role)+'</span><span><b>'+Number(m.profiles?.points||0)+' pts</b>'+(my.member_role==="leader"&&m.user_id!==currentUser.id?' <button class="button button-outline" data-set-vice="'+m.user_id+'">Make vice</button> <button class="button button-outline" data-remove-member="'+m.user_id+'">Remove</button>':'')+'</span></article>').join("");
       if(my.member_role==="leader") html+='<form id="inviteClanForm" class="inline-form"><h3>Invite a player</h3><input name="username" required placeholder="Player username"><button class="button button-primary">Send invitation</button></form>';
       if (my.member_role==="leader"||my.member_role==="vice_leader") {
         const {data:reqs}=await db.from("clan_join_requests").select("id,user_id,profiles(username,staff_role,country_code)").eq("clan_id",my.clan_id).eq("status","pending");
-        html+='<h3>Join requests</h3>'+(reqs?.length?reqs.map(r=>'<article class="community-row"><span>@'+escapeHtml(r.profiles?.username||"player")+'</span><button class="button button-primary" data-clan-request="'+r.id+'">Accept</button></article>').join(""):'<p class="muted small">No pending requests.</p>');
+        html+='<h3>Join requests</h3>'+(reqs?.length?reqs.map(r=>'<article class="community-row"><span>'+communityPlayerName(r.profiles)+'</span><button class="button button-primary" data-clan-request="'+r.id+'">Accept</button></article>').join(""):'<p class="muted small">No pending requests.</p>');
       }
     }
     html+='<h3>Explore clans</h3>'+(clans||[]).map(c=>'<article class="community-row"><span><b><button class="link-button" data-view-clan="'+c.id+'">'+escapeHtml(c.name)+'</button></b><small>'+Number(c.member_count)+' / 4 members · '+Number(c.points)+' pts</small></span>'+(my?'':'<button class="button button-outline" data-join-clan="'+c.id+'">Request to join</button>')+'</article>').join("");
@@ -584,7 +584,7 @@
     $("communityTitle").textContent=clan.name;
     $("communityContent").innerHTML=(clan.banner_url?'<img class="profile-banner" src="'+escapeHtml(clan.banner_url)+'" alt="">':'')+
       '<div class="community-actions"><button class="button button-outline" data-community="clans">Back</button></div><h3>'+escapeHtml(clan.name)+'</h3><p>'+escapeHtml(clan.description||"No description.")+'</p><p class="muted small">Public clan page · '+(members?.length||0)+'/4 members</p>'+
-      (members||[]).map(m=>'<article class="community-row"><span><b>@'+escapeHtml(m.profiles?.username||"player")+'</b><small>'+escapeHtml(m.member_role)+'</small></span><strong>'+Number(m.profiles?.points||0)+' pts</strong></article>').join("");
+      (members||[]).map(m=>'<article class="community-row"><span><b>'+communityPlayerName(m.profiles)+'</b><small>'+escapeHtml(m.member_role)+'</small></span><strong>'+Number(m.profiles?.points||0)+' pts</strong></article>').join("");
     if(currentUser && !(members||[]).some(m=>m.user_id===currentUser.id)) $("communityContent").insertAdjacentHTML("beforeend",'<button class="button button-primary" data-join-clan="'+clan.id+'">Request to join</button>');
     communityDialog.showModal();
   }
