@@ -76,6 +76,7 @@
     $("loginOpen").classList.add("hidden");
     $("signupOpen").classList.add("hidden");
     $("accountButton").classList.remove("hidden");
+    $("matchRequestsOpen").classList.remove("hidden");
     updateAccountButton();
   }
   function showSignedOut() {
@@ -84,10 +85,11 @@
     $("loginOpen").classList.remove("hidden");
     $("signupOpen").classList.remove("hidden");
     $("accountButton").classList.add("hidden");
+    $("matchRequestsOpen").classList.add("hidden");
   }
   async function loadProfile() {
     if (!db || !currentUser) return;
-    const { data, error } = await db.from("profiles").select("id, username, display_name, bio, points, division, wins, losses, avatar_url, banner_url, dm_policy").eq("id", currentUser.id).maybeSingle();
+    const { data, error } = await db.from("profiles").select("id, username, display_name, bio, points, division, wins, losses, avatar_url, banner_url, dm_policy, match_policy").eq("id", currentUser.id).maybeSingle();
     if (error) { console.error(error); return; }
     currentProfile = data;
     if (data) showSignedIn(data);
@@ -255,6 +257,7 @@
     profileEditForm.elements.avatar_url.value = currentProfile?.avatar_url || "";
     profileEditForm.elements.banner_url.value = currentProfile?.banner_url || "";
     profileEditForm.elements.dm_policy.value = currentProfile?.dm_policy || "everyone";
+    profileEditForm.elements.match_policy.value = currentProfile?.match_policy || "everyone";
     loadOwnStreamsIntoForm();
     profileEditForm.classList.remove("hidden");
     $("editProfileOpen").classList.add("hidden");
@@ -282,7 +285,8 @@
     const { error } = await db.from("profiles").update({
       display_name: displayName, bio,
       avatar_url: avatarUrl || null, banner_url: bannerUrl || null,
-      dm_policy: String(form.get("dm_policy") || "everyone")
+      dm_policy: String(form.get("dm_policy") || "everyone"),
+      match_policy: String(form.get("match_policy") || "everyone")
     }).eq("id", currentUser.id);
     $("profileSave").disabled = false;
     if (error) return message("profileEditMessage", error.message, true);
@@ -355,6 +359,7 @@
   let activeConversationTitle = "";
   let chatSubscription = null;
   let activeProfileId = null;
+  let matchRequestSubscription = null;
   const communityDialog = $("communityDialog");
   const chatDialog = $("chatDialog");
 
@@ -456,10 +461,11 @@
 
   async function showCommunity(section="messages") {
     if (!currentUser) { setAuthMode("login"); authDialog.showModal(); return; }
-    $("communityTitle").textContent = section==="clans"?"Clans":section==="ranking"?"Clan ranking":section==="friends"?"Friends":"Messages";
+    $("communityTitle").textContent = section==="clans"?"Clans":section==="ranking"?"Clan ranking":section==="friends"?"Friends":section==="match-requests"?"Match challenges":"Messages";
     $("communityContent").innerHTML = '<p class="muted">Loading...</p>';
     communityDialog.showModal();
     if (section==="messages") await renderConversations();
+    if (section==="match-requests") await renderMatchRequests();
     if (section==="friends") await renderFriends();
     if (section==="clans") await renderClans();
     if (section==="ranking") await renderClanRanking();
@@ -471,7 +477,7 @@
       .eq("user_id",currentUser.id).order("joined_at",{ascending:false});
     if (error) { $("communityContent").textContent=error.message; return; }
     const rows=(data||[]).map(x=>x.conversations).filter(Boolean);
-    $("communityContent").innerHTML='<div class="community-actions"><button class="button button-outline" data-community="friends">Friends</button><button class="button button-outline" data-community="new-group">Create group</button></div>' +
+    $("communityContent").innerHTML='<div class="community-actions"><button class="button button-outline" data-community="friends">Friends</button><button class="button button-outline" data-community="match-requests">Match requests</button><button class="button button-outline" data-community="new-group">Create group</button></div>' +
       (rows.length?rows.map(c=>'<button class="conversation-row" data-open-chat="' + c.id + '" data-chat-title="' + escapeHtml(c.title || "Direct message") + '"><span><b>' + escapeHtml(c.title || "Direct message") + '</b><small>' + (c.conversation_type==="group"?"Group":"Private chat") + '</small></span><span>Open →</span></button>').join(""):'<p class="muted small">No conversations yet. Open a player profile and choose Message.</p>');
   }
 
@@ -482,7 +488,7 @@
     const incoming=(data||[]).filter(x=>x.addressee_id===currentUser.id&&x.status==="pending");
     const friends=(data||[]).filter(x=>x.status==="accepted");
     const outgoing=(data||[]).filter(x=>x.requester_id===currentUser.id&&x.status==="pending");
-    $("communityContent").innerHTML='<div class="community-actions"><button class="button button-outline" data-community="messages">Messages</button></div><h3>Friend requests</h3>' +
+    $("communityContent").innerHTML='<div class="community-actions"><button class="button button-outline" data-community="messages">Messages</button><button class="button button-outline" data-community="match-requests">Match requests</button></div><h3>Friend requests</h3>' +
       (incoming.length?incoming.map(x=>'<article class="community-row"><span>@'+escapeHtml(x.requester?.username||"player")+'</span><span><button class="button button-primary" data-friend-response="'+x.id+'" data-accept="true">Accept</button> <button class="button button-outline" data-friend-response="'+x.id+'" data-accept="false">Decline</button></span></article>').join(""):'<p class="muted small">No incoming requests.</p>')+
       '<h3>Your friends</h3>'+(friends.length?friends.map(x=>'<article class="community-row"><b>@'+escapeHtml((x.requester_id===currentUser.id?x.addressee:x.requester)?.username||"player")+'</b><span>Friends</span></article>').join(""):'<p class="muted small">No friends added yet.</p>')+
       (outgoing.length?'<p class="muted small">Outgoing requests: '+outgoing.length+'</p>':'');
