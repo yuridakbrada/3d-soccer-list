@@ -494,7 +494,7 @@
     const incoming=(data||[]).filter(x=>x.challenged_id===currentUser.id&&x.status==="pending");
     const outgoing=(data||[]).filter(x=>x.challenger_id===currentUser.id&&x.status==="pending");
     const history=(data||[]).filter(x=>x.status!=="pending");
-    $("communityContent").innerHTML='<div class="community-actions"><button class="button button-outline" data-community="messages">Messages</button><button class="button button-outline" data-community="friends">Friends</button></div><h3>Incoming challenges</h3>'+
+    $("communityContent").innerHTML='<div class="community-actions"><button class="button button-outline" data-community="messages">Messages</button><button class="button button-outline" data-community="friends">Friends</button><button class="button button-outline" data-enable-match-notifications>Enable browser notifications</button></div><h3>Incoming challenges</h3>'+
       (incoming.length?incoming.map(x=>'<article class="community-row"><span><b>@'+escapeHtml(x.challenger?.username||"player")+'</b><small>Wants to play a match · '+new Date(x.created_at).toLocaleString()+'</small></span><span><button class="button button-primary" data-match-response="'+x.id+'" data-accept="true">Accept</button> <button class="button button-outline" data-match-response="'+x.id+'" data-accept="false">Decline</button></span></article>').join(""):'<p class="muted small">No incoming match challenges.</p>')+
       '<h3>Sent by you</h3>'+(outgoing.length?outgoing.map(x=>'<article class="community-row"><span>@'+escapeHtml(x.challenged?.username||"player")+'</span><small>Pending</small></article>').join(""):'<p class="muted small">No outgoing challenges waiting for a response.</p>')+
       '<h3>Recent decisions</h3>'+(history.length?history.slice(0,10).map(x=>'<article class="community-row"><span>@'+escapeHtml((x.challenger_id===currentUser.id?x.challenged:x.challenger)?.username||"player")+'</span><small>'+({accepted:"Accepted",rejected:"Declined",cancelled:"Cancelled"}[x.status]||x.status)+'</small></article>').join(""):'<p class="muted small">No previous decisions.</p>');
@@ -586,6 +586,7 @@
     const open=event.target.closest("[data-open-chat]");
     const response=event.target.closest("[data-friend-response]");
     const matchResponse=event.target.closest("[data-match-response]");
+    const enableMatchNotifications=event.target.closest("[data-enable-match-notifications]");
     const join=event.target.closest("[data-join-clan]");
     const accept=event.target.closest("[data-clan-request]");
     const leave=event.target.closest("[data-leave-clan]");
@@ -621,6 +622,13 @@
     if (matchResponse) {
       const {error}=await db.rpc("respond_match_request",{p_request_id:matchResponse.dataset.matchResponse,p_accept:matchResponse.dataset.accept==="true"});
       if(error) alert(error.message); else { await renderMatchRequests(); await updateMatchRequestCount(); }
+    }
+    if (enableMatchNotifications) {
+      if (!("Notification" in window)) alert("This browser does not support desktop notifications.");
+      else {
+        const permission=await Notification.requestPermission();
+        alert(permission==="granted" ? "Browser notifications enabled." : "Notifications were not enabled. You can change this in your browser site settings.");
+      }
     }
     if (join) {
       const {error}=await db.rpc("request_clan_join",{p_clan_id:join.dataset.joinClan});
