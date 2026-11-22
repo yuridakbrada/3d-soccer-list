@@ -162,5 +162,5 @@ footer .brand{font-size:16px}
 
 
 /* Staff role icons */
-.staff-role-icon{display:inline-block;width:19px;height:19px;flex:0 0 19px;object-fit:contain;vertical-align:middle}
+.staff-role-icon{display:inline-block;width:19px;height:19px;flex:0 0 19px;object-fit:contain;vertical-align:middle}filter:brightness(0) invert(1);
 .ranking-name-main .staff-role-icon,.profile-name-main .staff-role-icon{margin-left:1px}
