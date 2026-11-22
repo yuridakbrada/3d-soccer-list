@@ -559,7 +559,21 @@
     const dm=event.target.closest("[data-message-player]");
     const add=event.target.closest("[data-add-friend]");
     const login=event.target.closest("[data-profile-login]");
+    const challenge=event.target.closest("[data-challenge-player]");
     if (dm) await startDirectMessage(dm.dataset.messagePlayer);
+    if (challenge) {
+      challenge.disabled=true;
+      const {error}=await db.rpc("create_match_request",{p_user_id:challenge.dataset.challengePlayer});
+      if(error) { alert(error.message); challenge.disabled=false; }
+      else {
+        alert("Match challenge sent.");
+        if(activeProfileId) {
+          const {data}=await db.from("profiles").select("id,username,display_name,dm_policy,match_policy").eq("id",activeProfileId).single();
+          if(data) await loadProfileExtras(data);
+        }
+        await updateMatchRequestCount();
+      }
+    }
     if (add) {
       const {error}=await db.rpc("send_friend_request",{p_user_id:add.dataset.addFriend});
       if (error) alert(error.message); else { alert("Friend request sent."); if (activeProfileId) { const {data}=await db.from("profiles").select("id,username,display_name,dm_policy").eq("id",activeProfileId).single(); if(data) loadProfileExtras(data); } }
@@ -571,6 +585,7 @@
     const community=event.target.closest("[data-community]");
     const open=event.target.closest("[data-open-chat]");
     const response=event.target.closest("[data-friend-response]");
+    const matchResponse=event.target.closest("[data-match-response]");
     const join=event.target.closest("[data-join-clan]");
     const accept=event.target.closest("[data-clan-request]");
     const leave=event.target.closest("[data-leave-clan]");
@@ -602,6 +617,10 @@
     if (response) {
       const {error}=await db.rpc("respond_friend_request",{p_request_id:response.dataset.friendResponse,p_accept:response.dataset.accept==="true"});
       if(error) alert(error.message); else await renderFriends();
+    }
+    if (matchResponse) {
+      const {error}=await db.rpc("respond_match_request",{p_request_id:matchResponse.dataset.matchResponse,p_accept:matchResponse.dataset.accept==="true"});
+      if(error) alert(error.message); else { await renderMatchRequests(); await updateMatchRequestCount(); }
     }
     if (join) {
       const {error}=await db.rpc("request_clan_join",{p_clan_id:join.dataset.joinClan});
@@ -646,15 +665,36 @@
     }
   });
 
+  $("matchRequestsOpen").addEventListener("click",()=>showCommunity("match-requests"));
   $("openMessages").addEventListener("click",()=>showCommunity("messages"));
   $("openClans").addEventListener("click",()=>showCommunity("clans"));
   $("openClanRanking").addEventListener("click",()=>showCommunity("ranking"));
 
+  async function updateMatchRequestCount() {
+    const button=$("matchRequestsOpen");
+    if(!button||!currentUser||!db) return;
+    const {count,error}=await db.from("match_requests").select("id",{count:"exact",head:true})
+      .eq("challenged_id",currentUser.id).eq("status","pending");
+    if(error) { console.warn("Could not refresh match challenge count:",error); return; }
+    button.textContent=count ? "Challenges ("+count+")" : "Challenges";
+  }
   if (db) {
     db.auth.onAuthStateChange((_event, session) => {
       currentUser = session?.user || null;
-      if (!currentUser) showSignedOut();
-      else setTimeout(async () => { await loadProfile(); await checkAdmin(); showSignedIn(currentProfile); }, 0);
+      if (!currentUser) {
+        showSignedOut();
+        if(matchRequestSubscription){db.removeChannel(matchRequestSubscription);matchRequestSubscription=null;}
+      } else setTimeout(async () => {
+        await loadProfile(); await checkAdmin(); showSignedIn(currentProfile);
+        await updateMatchRequestCount();
+        if(matchRequestSubscription) await db.removeChannel(matchRequestSubscription);
+        matchRequestSubscription=db.channel("match-requests-"+currentUser.id)
+          .on("postgres_changes",{event:"INSERT",schema:"public",table:"match_requests",filter:"challenged_id=eq."+currentUser.id},payload=>{
+            updateMatchRequestCount();
+            if(document.visibilityState==="visible" && "Notification" in window && Notification.permission==="granted")
+              new Notification("New match challenge",{body:"A player has challenged you to a match."});
+          }).subscribe();
+      }, 0);
     });
     refreshSession(); loadRanking();
   } else {
