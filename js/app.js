@@ -383,16 +383,20 @@
     }
     if (actionBox) {
       if (currentUser?.id === profile.id) {
-        actionBox.innerHTML = '<span class="muted small">DM privacy: ' + ({nobody:"Not accepting DMs",friends:"Friends only",everyone:"Everyone"}[profile.dm_policy || "everyone"]) + '</span>';
+        actionBox.innerHTML = '<span class="muted small">DM privacy: ' + ({nobody:"Not accepting DMs",friends:"Friends only",everyone:"Everyone"}[profile.dm_policy || "everyone"]) + '</span><span class="muted small">Match challenges: ' + ({nobody:"Not accepting",friends:"Friends only",everyone:"Everyone"}[profile.match_policy || "everyone"]) + '</span>';
       } else if (!currentUser) {
         actionBox.innerHTML = '<button class="button button-outline" type="button" data-profile-login>Log in to connect</button>';
       } else {
         const { data: friends } = await db.rpc("are_friends", {p_user_a:currentUser.id,p_user_b:profile.id});
         const { data: pending } = await db.from("friend_requests").select("id,requester_id,addressee_id,status")
           .or('and(requester_id.eq.' + currentUser.id + ',addressee_id.eq.' + profile.id + '),and(requester_id.eq.' + profile.id + ',addressee_id.eq.' + currentUser.id + ')').eq("status","pending").limit(1);
+        const { data: challengePending } = await db.from("match_requests").select("id,challenger_id,challenged_id,status")
+          .or('and(challenger_id.eq.' + currentUser.id + ',challenged_id.eq.' + profile.id + '),and(challenger_id.eq.' + profile.id + ',challenged_id.eq.' + currentUser.id + ')').eq("status","pending").limit(1);
         const dmAllowed = profile.dm_policy === "everyone" || (profile.dm_policy === "friends" && friends === true);
+        const matchAllowed = profile.match_policy === "everyone" || (profile.match_policy === "friends" && friends === true);
         actionBox.innerHTML = (friends ? '<span class="muted small">Friends</span>' : pending?.length ? '<span class="muted small">Friend request pending</span>' : '<button class="button button-outline" type="button" data-add-friend="' + escapeHtml(profile.id) + '">Add friend</button>') +
-          (dmAllowed ? '<button class="button button-primary" type="button" data-message-player="' + escapeHtml(profile.id) + '">Message</button>' : '<span class="muted small">' + (profile.dm_policy === "nobody" ? "This player is not accepting DMs." : "Add each other as friends to send a DM.") + '</span>');
+          (dmAllowed ? '<button class="button button-primary" type="button" data-message-player="' + escapeHtml(profile.id) + '">Message</button>' : '<span class="muted small">' + (profile.dm_policy === "nobody" ? "This player is not accepting DMs." : "Add each other as friends to send a DM.") + '</span>') +
+          (challengePending?.length ? '<span class="muted small">A match request is already pending.</span>' : matchAllowed ? '<button class="button button-primary" type="button" data-challenge-player="' + escapeHtml(profile.id) + '">Challenge to match</button>' : '<span class="muted small">' + (profile.match_policy === "nobody" ? "This player is not accepting match challenges." : "Add each other as friends to challenge this player.") + '</span>');
       }
     }
   }
@@ -479,6 +483,21 @@
     const rows=(data||[]).map(x=>x.conversations).filter(Boolean);
     $("communityContent").innerHTML='<div class="community-actions"><button class="button button-outline" data-community="friends">Friends</button><button class="button button-outline" data-community="match-requests">Match requests</button><button class="button button-outline" data-community="new-group">Create group</button></div>' +
       (rows.length?rows.map(c=>'<button class="conversation-row" data-open-chat="' + c.id + '" data-chat-title="' + escapeHtml(c.title || "Direct message") + '"><span><b>' + escapeHtml(c.title || "Direct message") + '</b><small>' + (c.conversation_type==="group"?"Group":"Private chat") + '</small></span><span>Open →</span></button>').join(""):'<p class="muted small">No conversations yet. Open a player profile and choose Message.</p>');
+  }
+
+  async function renderMatchRequests() {
+    const {data,error}=await db.from("match_requests")
+      .select("id,challenger_id,challenged_id,status,created_at,challenger:profiles!match_requests_challenger_id_fkey(username,display_name),challenged:profiles!match_requests_challenged_id_fkey(username,display_name)")
+      .or("challenger_id.eq."+currentUser.id+",challenged_id.eq."+currentUser.id)
+      .order("created_at",{ascending:false}).limit(50);
+    if(error){$("communityContent").textContent=error.message;return;}
+    const incoming=(data||[]).filter(x=>x.challenged_id===currentUser.id&&x.status==="pending");
+    const outgoing=(data||[]).filter(x=>x.challenger_id===currentUser.id&&x.status==="pending");
+    const history=(data||[]).filter(x=>x.status!=="pending");
+    $("communityContent").innerHTML='<div class="community-actions"><button class="button button-outline" data-community="messages">Messages</button><button class="button button-outline" data-community="friends">Friends</button></div><h3>Incoming challenges</h3>'+
+      (incoming.length?incoming.map(x=>'<article class="community-row"><span><b>@'+escapeHtml(x.challenger?.username||"player")+'</b><small>Wants to play a match · '+new Date(x.created_at).toLocaleString()+'</small></span><span><button class="button button-primary" data-match-response="'+x.id+'" data-accept="true">Accept</button> <button class="button button-outline" data-match-response="'+x.id+'" data-accept="false">Decline</button></span></article>').join(""):'<p class="muted small">No incoming match challenges.</p>')+
+      '<h3>Sent by you</h3>'+(outgoing.length?outgoing.map(x=>'<article class="community-row"><span>@'+escapeHtml(x.challenged?.username||"player")+'</span><small>Pending</small></article>').join(""):'<p class="muted small">No outgoing challenges waiting for a response.</p>')+
+      '<h3>Recent decisions</h3>'+(history.length?history.slice(0,10).map(x=>'<article class="community-row"><span>@'+escapeHtml((x.challenger_id===currentUser.id?x.challenged:x.challenger)?.username||"player")+'</span><small>'+({accepted:"Accepted",rejected:"Declined",cancelled:"Cancelled"}[x.status]||x.status)+'</small></article>').join(""):'<p class="muted small">No previous decisions.</p>');
   }
 
   async function renderFriends() {
