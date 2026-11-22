@@ -50,9 +50,10 @@ The frontend is a static site. Supabase will provide authentication and persiste
 4. Run `supabase/community-features-migration.sql` for friend requests, DM privacy settings and public match history.
 5. Run `supabase/clan-management-migration.sql` for clan invitations, member removal and vice-leader management.
 6. Run `supabase/match-review-migration.sql` to enable secure administrator approval and rejection of match submissions.
-7. Copy `js/supabase-config.example.js` to `js/supabase-config.js`.
-8. Add your Supabase project URL and publishable (anon) key to that local config file.
-9. Open `index.html` through a local development server or deploy it to static hosting.
+7. Run `supabase/match-challenges-migration.sql` to enable match challenges and challenge privacy settings.
+8. Copy `js/supabase-config.example.js` to `js/supabase-config.js`.
+9. Add your Supabase project URL and publishable (anon) key to that local config file.
+10. Open `index.html` through a local development server or deploy it to static hosting.
 
 Never commit a Supabase `service_role` key, database password, or other secret.
 
@@ -61,6 +62,7 @@ Never commit a Supabase `service_role` key, database password, or other secret.
 - Public player profiles with the latest 10 approved matches
 - DM privacy: nobody, friends only, or everyone
 - Friend requests
+- Match challenges with per-player privacy controls (nobody, friends only, or everyone)
 - Private direct messages and group conversations
 - Clans with up to four players, leadership roles, join requests and invitations
 - Clan ranking based on the combined points of members
