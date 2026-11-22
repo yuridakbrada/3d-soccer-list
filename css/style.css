@@ -167,6 +167,6 @@ footer .brand{font-size:16px}
 
 
 /* Country flags beside player and staff names */
-.country-flag{display:inline-flex;align-items:center;justify-content:center;font-family:system-ui,sans-serif;font-size:17px;line-height:1;flex:0 0 auto;vertical-align:middle}.ranking-name-main .country-flag,.profile-name-main .country-flag{margin-left:1px}
+.country-flag{display:inline-block;width:20px;height:15px;object-fit:cover;border-radius:2px;vertical-align:middle;flex:0 0 auto}.ranking-name-main .country-flag,.profile-name-main .country-flag{display:inline-block;width:20px;height:15px;object-fit:cover;border-radius:2px;vertical-align:middle;flex:0 0 auto}
 
 .chat-message .chat-sender{margin:0 0 5px;color:#b6d2e9;font-size:10px;font-weight:700}
