@@ -481,9 +481,9 @@
 
   async function loadChatMessages() {
     if (!db || !activeConversationId) return;
-    const { data,error } = await db.from("messages").select("id,sender_id,body,created_at").eq("conversation_id",activeConversationId).order("created_at",{ascending:true}).limit(100);
+    const { data,error } = await db.from("messages").select("id,sender_id,body,created_at,profiles(username,staff_role,country_code)").eq("conversation_id",activeConversationId).order("created_at",{ascending:true}).limit(100);
     if (error) { $("chatMessages").textContent = error.message; return; }
-    $("chatMessages").innerHTML = data?.length ? data.map(m => '<article class="chat-message ' + (m.sender_id===currentUser.id?"chat-mine":"") + '"><p>' + escapeHtml(m.body) + '</p><small>' + new Date(m.created_at).toLocaleString() + '</small></article>').join("") : '<p class="muted small">No messages yet. Start the conversation.</p>';
+    $("chatMessages").innerHTML = data?.length ? data.map(m => '<article class="chat-message ' + (m.sender_id===currentUser.id?"chat-mine":"") + '"><p class="chat-sender">' + communityPlayerName(m.profiles) + '</p><p>' + escapeHtml(m.body) + '</p><small>' + new Date(m.created_at).toLocaleString() + '</small></article>').join("") : '<p class="muted small">No messages yet. Start the conversation.</p>';
     $("chatMessages").scrollTop = $("chatMessages").scrollHeight;
   }
 
