@@ -155,3 +155,7 @@ footer .brand{font-size:16px}
 
 /* Administrator match review */
 .admin-submission{border-radius:4px}.admin-submission-heading{font-size:13px}.admin-submission-score{margin:8px 0}.admin-submission-score strong{color:#e5edf3}.admin-review-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid #39454d}.admin-review-actions button:disabled{opacity:.5;cursor:wait}.admin-submission>a{display:inline-block;margin:5px 0}
+
+
+/* Match challenge notifications */
+#matchRequestsOpen{white-space:nowrap}.profile-actions .muted{display:block}
