@@ -89,7 +89,7 @@
   }
   async function loadProfile() {
     if (!db || !currentUser) return;
-    const { data, error } = await db.from("profiles").select("id, username, display_name, bio, points, division, wins, losses, avatar_url, banner_url, dm_policy, match_policy, staff_role").eq("id", currentUser.id).maybeSingle();
+    const { data, error } = await db.from("profiles").select("id, username, display_name, bio, points, division, wins, losses, avatar_url, banner_url, dm_policy, match_policy, staff_role, country_code").eq("id", currentUser.id).maybeSingle();
     if (error) { console.error(error); return; }
     currentProfile = data;
     if (data) showSignedIn(data);
@@ -178,7 +178,7 @@
       const avatar = p.avatar_url
         ? '<img class="ranking-avatar" src="' + escapeHtml(p.avatar_url) + '" alt="" loading="lazy" referrerpolicy="no-referrer">'
         : '<span class="ranking-avatar ranking-avatar-fallback" aria-hidden="true">' + escapeHtml((p.display_name || p.username || "?").charAt(0).toUpperCase()) + '</span>';
-      return '<tr class="ranking-player-row"><td>' + (rankingPage * rankingPageSize + i + 1) + '</td><td><button class="ranking-player" type="button" data-player-id="' + escapeHtml(p.id) + '">' + avatar + '<span class="ranking-name"><span class="ranking-name-main"><strong>' + escapeHtml(p.display_name || p.username) + '</strong>' + staffBadge(p) + divisionBadge(p) + '</span><span class="muted tiny">@' + escapeHtml(p.username) + '</span></span></button></td><td>' + escapeHtml(p.division) + '</td><td><strong>' + Number(p.points).toLocaleString() + '</strong></td><td>' + (p.wins || 0) + '-' + (p.losses || 0) + '</td></tr>';
+      return '<tr class="ranking-player-row"><td>' + (rankingPage * rankingPageSize + i + 1) + '</td><td><button class="ranking-player" type="button" data-player-id="' + escapeHtml(p.id) + '">' + avatar + '<span class="ranking-name"><span class="ranking-name-main"><strong>' + escapeHtml(p.display_name || p.username) + '</strong>' + staffBadge(p) + countryFlag(p) + divisionBadge(p) + '</span><span class="muted tiny">@' + escapeHtml(p.username) + '</span></span></button></td><td>' + escapeHtml(p.division) + '</td><td><strong>' + Number(p.points).toLocaleString() + '</strong></td><td>' + (p.wins || 0) + '-' + (p.losses || 0) + '</td></tr>';
     }).join("") : '<tr><td colspan="5" class="empty">No players found.</td></tr>';
   }
   const divisionMeta = [
@@ -206,6 +206,24 @@
     const meta = roles[role];
     return meta ? '<img class="staff-role-icon" src="' + meta.icon + '" alt="' + meta.label + '" title="' + meta.label + '" loading="lazy">' : "";
   }
+  const UN_MEMBER_COUNTRY_CODES = ["AD","AE","AF","AG","AL","AM","AO","AR","AT","AU","AZ","BA","BB","BD","BE","BF","BG","BH","BI","BJ","BN","BO","BR","BS","BT","BW","BY","BZ","CA","CD","CF","CG","CH","CI","CL","CM","CN","CO","CR","CU","CV","CY","CZ","DE","DJ","DK","DM","DO","DZ","EC","EE","EG","ER","ES","ET","FI","FJ","FM","FR","GA","GB","GD","GE","GH","GM","GN","GQ","GR","GT","GW","GY","HN","HR","HT","HU","ID","IE","IL","IN","IQ","IR","IS","IT","JM","JO","JP","KE","KG","KH","KI","KM","KN","KP","KR","KW","KZ","LA","LB","LC","LI","LK","LR","LS","LT","LU","LV","LY","MA","MC","MD","ME","MG","MH","MK","ML","MM","MN","MR","MT","MU","MV","MW","MX","MY","MZ","NA","NE","NG","NI","NL","NO","NP","NR","NZ","OM","PA","PE","PG","PH","PK","PL","PT","PW","PY","QA","RO","RS","RU","RW","SA","SB","SC","SD","SE","SG","SI","SK","SL","SM","SN","SO","SR","SS","ST","SV","SY","SZ","TD","TG","TH","TJ","TL","TM","TN","TO","TR","TT","TV","TZ","UA","UG","US","UY","UZ","VC","VE","VN","VU","WS","YE","ZA","ZM","ZW"];
+  const countryNames = new Intl.DisplayNames(["en"], { type: "region" });
+  function countryFlag(profile) {
+    const code = String(profile?.country_code || "").toUpperCase();
+    if (!/^[A-Z]{2}$/.test(code) || !UN_MEMBER_COUNTRY_CODES.includes(code)) return "";
+    const flag = String.fromCodePoint(...[...code].map(char => 127397 + char.charCodeAt(0)));
+    return '<span class="country-flag" role="img" aria-label="' + escapeHtml(countryNames.of(code)) + '" title="' + escapeHtml(countryNames.of(code)) + '">' + flag + '</span>';
+  }
+  function populateCountryOptions() {
+    const select = $("countrySelect");
+    if (!select) return;
+    const options = UN_MEMBER_COUNTRY_CODES.map(code => ({ code, name: countryNames.of(code) }))
+      .sort((a, b) => a.name.localeCompare(b.name, "en"));
+    select.innerHTML = '<option value="">No country selected</option>' +
+      options.map(item => '<option value="' + item.code + '">' + escapeHtml(item.name) + '</option>').join("");
+  }
+  populateCountryOptions();
+
   function divisionBadge(profile) {
     const division = getDivisionMeta(profile);
     return '<span class="division-badge" style="--division-color:' + division.color +
@@ -239,7 +257,7 @@
     }
     const banner = viewedProfile.banner_url ? '<img class="profile-banner" src="' + escapeHtml(viewedProfile.banner_url) + '" alt="Profile banner" referrerpolicy="no-referrer">' : "";
     const avatar = viewedProfile.avatar_url ? '<img class="profile-avatar" src="' + escapeHtml(viewedProfile.avatar_url) + '" alt="Profile avatar" referrerpolicy="no-referrer">' : "";
-    $("profileContent").innerHTML = banner + '<div class="profile-identity">' + avatar + '<div><div class="profile-name-line"><span class="profile-name-main"><strong>' + escapeHtml(viewedProfile.display_name || viewedProfile.username) + '</strong>' + staffBadge(viewedProfile) + divisionBadge(viewedProfile) + '</span></div><div class="muted tiny">@' + escapeHtml(viewedProfile.username) + '</div></div></div><div class="profile-stat"><b>' + Number(viewedProfile.points).toLocaleString() + ' points</b> · ' + escapeHtml(viewedProfile.division) + '</div><p>' + escapeHtml(viewedProfile.bio || "No biography yet.") + '</p><p class="muted small">Wins: ' + (viewedProfile.wins || 0) + ' · Losses: ' + (viewedProfile.losses || 0) + '</p><div id="profileStreams" class="profile-streams"></div><div id="profileActions" class="profile-actions"></div><section class="profile-match-section"><h3>Recent matches</h3><div id="profileMatches" class="profile-matches"><p class="muted small">Loading recent matches...</p></div></section>';
+    $("profileContent").innerHTML = banner + '<div class="profile-identity">' + avatar + '<div><div class="profile-name-line"><span class="profile-name-main"><strong>' + escapeHtml(viewedProfile.display_name || viewedProfile.username) + '</strong>' + staffBadge(viewedProfile) + countryFlag(viewedProfile) + divisionBadge(viewedProfile) + '</span></div><div class="muted tiny">@' + escapeHtml(viewedProfile.username) + '</div></div></div><div class="profile-stat"><b>' + Number(viewedProfile.points).toLocaleString() + ' points</b> · ' + escapeHtml(viewedProfile.division) + '</div><p>' + escapeHtml(viewedProfile.bio || "No biography yet.") + '</p><p class="muted small">Wins: ' + (viewedProfile.wins || 0) + ' · Losses: ' + (viewedProfile.losses || 0) + '</p><div id="profileStreams" class="profile-streams"></div><div id="profileActions" class="profile-actions"></div><section class="profile-match-section"><h3>Recent matches</h3><div id="profileMatches" class="profile-matches"><p class="muted small">Loading recent matches...</p></div></section>';
   }
   async function openPlayerProfile(playerId) {
     if (!db) return;
@@ -250,7 +268,7 @@
       profileDialog.showModal();
       return;
     }
-    const { data, error } = await db.from("profiles").select("id, username, display_name, bio, points, division, wins, losses, avatar_url, banner_url, dm_policy, staff_role").eq("id", playerId).maybeSingle();
+    const { data, error } = await db.from("profiles").select("id, username, display_name, bio, points, division, wins, losses, avatar_url, banner_url, dm_policy, staff_role, country_code").eq("id", playerId).maybeSingle();
     if (error || !data) { console.error(error); return; }
     renderProfile(data);
     loadProfileExtras(data);
@@ -264,6 +282,7 @@
   $("editProfileOpen").addEventListener("click", () => {
     profileEditForm.elements.display_name.value = currentProfile?.display_name || "";
     profileEditForm.elements.bio.value = currentProfile?.bio || "";
+    profileEditForm.elements.country_code.value = currentProfile?.country_code || "";
     profileEditForm.elements.avatar_url.value = currentProfile?.avatar_url || "";
     profileEditForm.elements.banner_url.value = currentProfile?.banner_url || "";
     profileEditForm.elements.dm_policy.value = currentProfile?.dm_policy || "everyone";
@@ -294,6 +313,7 @@
     message("profileEditMessage", "Saving...");
     const { error } = await db.from("profiles").update({
       display_name: displayName, bio,
+      country_code: String(form.get("country_code") || "").toUpperCase() || null,
       avatar_url: avatarUrl || null, banner_url: bannerUrl || null,
       dm_policy: String(form.get("dm_policy") || "everyone"),
       match_policy: String(form.get("match_policy") || "everyone")
