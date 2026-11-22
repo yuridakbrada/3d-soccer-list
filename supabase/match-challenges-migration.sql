@@ -19,6 +19,9 @@ create index if not exists match_requests_challenged_status_idx
   on public.match_requests(challenged_id,status,created_at desc);
 create index if not exists match_requests_challenger_status_idx
   on public.match_requests(challenger_id,status,created_at desc);
+create unique index if not exists match_requests_one_pending_pair_idx
+  on public.match_requests(least(challenger_id,challenged_id),greatest(challenger_id,challenged_id))
+  where status='pending';
 
 alter table public.match_requests enable row level security;
 drop policy if exists "Players read their own match requests" on public.match_requests;
