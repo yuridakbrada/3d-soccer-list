@@ -196,6 +196,10 @@
       points <= 2000 ? 3 : points <= 3000 ? 4 : points <= 4000 ? 5 : 6;
     return divisionMeta[index];
   }
+  function communityPlayerName(profile) {
+    return '<span class="community-player-name">@' + escapeHtml(profile?.username || "player") +
+      staffBadge(profile) + countryFlag(profile) + '</span>';
+  }
   function staffBadge(profile) {
     const role = profile?.staff_role;
     const roles = {
@@ -517,7 +521,7 @@
 
   async function renderMatchRequests() {
     const {data,error}=await db.from("match_requests")
-      .select("id,challenger_id,challenged_id,status,created_at,challenger:profiles!match_requests_challenger_id_fkey(username,display_name),challenged:profiles!match_requests_challenged_id_fkey(username,display_name)")
+      .select("id,challenger_id,challenged_id,status,created_at,challenger:profiles!match_requests_challenger_id_fkey(username,display_name,staff_role,country_code),challenged:profiles!match_requests_challenged_id_fkey(username,display_name,staff_role,country_code)")
       .or("challenger_id.eq."+currentUser.id+",challenged_id.eq."+currentUser.id)
       .order("created_at",{ascending:false}).limit(50);
     if(error){$("communityContent").textContent=error.message;return;}
@@ -531,7 +535,7 @@
   }
 
   async function renderFriends() {
-    const {data,error}=await db.from("friend_requests").select("id,requester_id,addressee_id,status,created_at,requester:profiles!friend_requests_requester_id_fkey(username,display_name),addressee:profiles!friend_requests_addressee_id_fkey(username,display_name)")
+    const {data,error}=await db.from("friend_requests").select("id,requester_id,addressee_id,status,created_at,requester:profiles!friend_requests_requester_id_fkey(username,display_name,staff_role,country_code),addressee:profiles!friend_requests_addressee_id_fkey(username,display_name,staff_role,country_code)")
       .or('requester_id.eq.'+currentUser.id+',addressee_id.eq.'+currentUser.id).order("created_at",{ascending:false});
     if (error) { $("communityContent").textContent=error.message; return; }
     const incoming=(data||[]).filter(x=>x.addressee_id===currentUser.id&&x.status==="pending");
@@ -554,11 +558,11 @@
     if (!my) html+='<form id="createClanForm" class="inline-form"><h3>Create a clan</h3><input name="name" required minlength="3" maxlength="32" placeholder="Clan name"><textarea name="description" maxlength="500" placeholder="Description"></textarea><button class="button button-primary">Create clan</button></form>';
     else {
       html+='<section class="my-clan"><h3>'+escapeHtml(my.clans?.name||"Your clan")+'</h3><p class="muted small">'+escapeHtml(my.clans?.description||"")+'</p><p>Your role: '+escapeHtml(my.member_role)+'</p><button class="button button-outline" data-leave-clan>Leave clan</button></section>';
-      const {data:members}=await db.from("clan_members").select("user_id,member_role,profiles(username,display_name,points)").eq("clan_id",my.clan_id);
+      const {data:members}=await db.from("clan_members").select("user_id,member_role,profiles(username,display_name,points,staff_role,country_code)").eq("clan_id",my.clan_id);
       html+='<h3>Roster ('+(members?.length||0)+'/4)</h3>'+(members||[]).map(m=>'<article class="community-row"><span>@'+escapeHtml(m.profiles?.username||"player")+' · '+escapeHtml(m.member_role)+'</span><span><b>'+Number(m.profiles?.points||0)+' pts</b>'+(my.member_role==="leader"&&m.user_id!==currentUser.id?' <button class="button button-outline" data-set-vice="'+m.user_id+'">Make vice</button> <button class="button button-outline" data-remove-member="'+m.user_id+'">Remove</button>':'')+'</span></article>').join("");
       if(my.member_role==="leader") html+='<form id="inviteClanForm" class="inline-form"><h3>Invite a player</h3><input name="username" required placeholder="Player username"><button class="button button-primary">Send invitation</button></form>';
       if (my.member_role==="leader"||my.member_role==="vice_leader") {
-        const {data:reqs}=await db.from("clan_join_requests").select("id,user_id,profiles(username)").eq("clan_id",my.clan_id).eq("status","pending");
+        const {data:reqs}=await db.from("clan_join_requests").select("id,user_id,profiles(username,staff_role,country_code)").eq("clan_id",my.clan_id).eq("status","pending");
         html+='<h3>Join requests</h3>'+(reqs?.length?reqs.map(r=>'<article class="community-row"><span>@'+escapeHtml(r.profiles?.username||"player")+'</span><button class="button button-primary" data-clan-request="'+r.id+'">Accept</button></article>').join(""):'<p class="muted small">No pending requests.</p>');
       }
     }
@@ -576,7 +580,7 @@
   async function showPublicClan(clanId) {
     const {data:clan,error}=await db.from("clans").select("id,name,slug,description,logo_url,banner_url").eq("id",clanId).maybeSingle();
     if(error||!clan) return alert("Clan page could not be loaded.");
-    const {data:members}=await db.from("clan_members").select("user_id,member_role,profiles(username,points)").eq("clan_id",clanId);
+    const {data:members}=await db.from("clan_members").select("user_id,member_role,profiles(username,points,staff_role,country_code)").eq("clan_id",clanId);
     $("communityTitle").textContent=clan.name;
     $("communityContent").innerHTML=(clan.banner_url?'<img class="profile-banner" src="'+escapeHtml(clan.banner_url)+'" alt="">':'')+
       '<div class="community-actions"><button class="button button-outline" data-community="clans">Back</button></div><h3>'+escapeHtml(clan.name)+'</h3><p>'+escapeHtml(clan.description||"No description.")+'</p><p class="muted small">Public clan page · '+(members?.length||0)+'/4 members</p>'+
