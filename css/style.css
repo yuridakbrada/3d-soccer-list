@@ -164,3 +164,7 @@ footer .brand{font-size:16px}
 /* Staff role icons */
 .staff-role-icon{display:inline-block;width:19px;height:19px;flex:0 0 19px;object-fit:contain;vertical-align:middle;filter:brightness(0) invert(1)}
 .ranking-name-main .staff-role-icon,.profile-name-main .staff-role-icon{margin-left:1px}
+
+
+/* Country flags beside player and staff names */
+.country-flag{display:inline-flex;align-items:center;justify-content:center;font-family:system-ui,sans-serif;font-size:17px;line-height:1;flex:0 0 auto;vertical-align:middle}.ranking-name-main .country-flag,.profile-name-main .country-flag{margin-left:1px}
