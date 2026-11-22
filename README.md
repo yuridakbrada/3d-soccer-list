@@ -52,9 +52,10 @@ The frontend is a static site. Supabase will provide authentication and persiste
 6. Run `supabase/match-review-migration.sql` to enable secure administrator approval and rejection of match submissions.
 7. Run `supabase/match-challenges-migration.sql` to enable match challenges and challenge privacy settings.
 8. Run `supabase/staff-roles-migration.sql` to register the site owner and enable staff role icons.
-9. Copy `js/supabase-config.example.js` to `js/supabase-config.js`.
-10. Add your Supabase project URL and publishable (anon) key to that local config file.
-11. Open `index.html` through a local development server or deploy it to static hosting.
+9. Run `supabase/country-migration.sql` to enable the 193 UN member country flags on profiles.
+10. Copy `js/supabase-config.example.js` to `js/supabase-config.js`.
+11. Add your Supabase project URL and publishable (anon) key to that local config file.
+12. Open `index.html` through a local development server or deploy it to static hosting.
 
 Never commit a Supabase `service_role` key, database password, or other secret.
 
